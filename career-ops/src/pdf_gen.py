@@ -21,13 +21,22 @@ except ImportError:
 
 BASE_DIR = Path(__file__).parent.parent
 
-# 中文字体路径（优先级顺序）
+# 中文字体路径（优先级：macOS → Linux）
 CHINESE_FONT_PATHS = [
+    # macOS
+    "/System/Library/Fonts/PingFang.ttc",
+    "/System/Library/Fonts/STHeiti Light.ttc",
+    "/System/Library/Fonts/STHeiti Medium.ttc",
+    "/Library/Fonts/Arial Unicode MS.ttf",
+    "/System/Library/Fonts/Supplemental/Songti.ttc",
+    # macOS Homebrew / 用户字体
+    "/Users/Shared/fonts/NotoSansSC-Regular.ttf",
+    # Linux
     "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-    "/System/Library/Fonts/PingFang.ttc",
-    "/Library/Fonts/Arial Unicode MS.ttf",
+    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+    "/usr/share/fonts/truetype/arphic/uming.ttc",
 ]
 
 
@@ -37,10 +46,13 @@ def _register_chinese_font() -> str:
         if Path(font_path).exists():
             try:
                 pdfmetrics.registerFont(TTFont("ChineseFont", font_path))
+                print(f"  ✓ PDF 字体：{Path(font_path).name}")
                 return "ChineseFont"
             except Exception:
                 continue
-    return "Helvetica"  # fallback（不支持中文，但不会崩溃）
+    print("  ⚠ 未找到中文字体，PDF 中文可能显示为方框")
+    print("    macOS 解决：字体已内置，请检查路径是否正确")
+    return "Helvetica"
 
 
 def _grade_color(grade: str):
@@ -197,28 +209,63 @@ def generate_pdf(job: dict, output_path: Path = None) -> Path:
     story.append(dim_table)
     story.append(Spacer(1, 8 * mm))
 
-    # ── 完整评估报告 ───────────────────────────────────────────
+    # ── 完整评估报告（Markdown → PDF）────────────────────────────
     full_report = job.get("full_report", "")
     if full_report:
         story.append(HRFlowable(width="100%", thickness=1,
                                 color=colors.HexColor("#dee2e6"), spaceAfter=6))
-        story.append(Paragraph("📝 完整评估报告", section_style))
+        story.append(Paragraph("📝 评估详情", section_style))
 
-        # 逐行添加，处理长文本
         for line in full_report.split("\n"):
-            line = line.strip()
-            if not line:
-                story.append(Spacer(1, 3 * mm))
-            elif line.startswith("═"):
+            raw = line.rstrip()
+
+            # 空行
+            if not raw:
+                story.append(Spacer(1, 2 * mm))
+                continue
+
+            # 转义 XML 特殊字符
+            safe = (raw.replace("&", "&amp;")
+                       .replace("<", "&lt;")
+                       .replace(">", "&gt;"))
+
+            # Markdown 表格行（跳过，已在维度评分里展示）
+            if safe.strip().startswith("|"):
+                continue
+
+            # 分割线
+            if set(raw.strip()) <= set("─—=－-"):
                 story.append(HRFlowable(width="100%", thickness=0.5,
-                                         color=colors.HexColor("#cccccc"),
-                                         spaceAfter=2))
-            else:
-                # 转义 XML 特殊字符
-                safe_line = (line.replace("&", "&amp;")
-                             .replace("<", "&lt;")
-                             .replace(">", "&gt;"))
-                story.append(Paragraph(safe_line, body_style))
+                                        color=colors.HexColor("#dddddd"), spaceAfter=2))
+                continue
+
+            # 二级标题 ##
+            if safe.startswith("## "):
+                text = safe[3:].strip().lstrip("#").strip()
+                story.append(Spacer(1, 3 * mm))
+                story.append(Paragraph(text, section_style))
+                continue
+
+            # 一级标题 #
+            if safe.startswith("# "):
+                continue  # 已有顶部标题，跳过
+
+            # 列表项 - / *
+            if raw.lstrip().startswith(("- ", "* ", "• ")):
+                text = safe.lstrip().lstrip("-*•").strip()
+                story.append(Paragraph(
+                    f"&nbsp;&nbsp;• {text}",
+                    ParagraphStyle("Li", fontName=font_name, fontSize=10,
+                                   leading=16, leftIndent=8,
+                                   textColor=colors.HexColor("#333333"))
+                ))
+                continue
+
+            # 加粗处理 **text**
+            import re as _re
+            safe = _re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", safe)
+
+            story.append(Paragraph(safe, body_style))
 
     # ── 底部信息 ───────────────────────────────────────────────
     story.append(Spacer(1, 8 * mm))

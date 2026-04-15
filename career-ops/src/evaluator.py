@@ -167,8 +167,20 @@ def parse_evaluation_result(raw_result: str, company: str, title: str,
     }
 
 
+def _clean_report(text: str) -> str:
+    """清理模型输出：去掉代码块包裹、多余空行"""
+    import re
+    # 去掉开头和结尾的 ``` 代码块
+    text = re.sub(r"^```[^\n]*\n", "", text.strip())
+    text = re.sub(r"\n```$", "", text.strip())
+    text = text.strip()
+    # 压缩连续空行（最多保留 1 个）
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text
+
+
 def save_report_to_file(evaluation: dict) -> Path:
-    """将评估报告保存为 Markdown 文件"""
+    """将评估报告保存为干净的 Markdown 文件"""
     reports_dir = BASE_DIR / "reports"
     reports_dir.mkdir(exist_ok=True)
 
@@ -177,18 +189,19 @@ def save_report_to_file(evaluation: dict) -> Path:
     filename = f"{timestamp}_{safe_company}_{evaluation['grade']}{evaluation['score']}.md"
     filepath = reports_dir / filename
 
-    content = f"""# 职位评估报告
+    clean_body = _clean_report(evaluation.get("full_report", ""))
 
-**公司**：{evaluation['company']}
-**职位**：{evaluation['title']}
-**地点**：{evaluation['location']}
-**评分**：{evaluation['score']}/100（{evaluation['grade']} 级）
-**评估时间**：{evaluation['evaluated_at']}
-**链接**：{evaluation['url']}
+    meta = []
+    if evaluation.get("url"):
+        meta.append(f"**链接**：{evaluation['url']}")
+    if evaluation.get("evaluated_at"):
+        meta.append(f"**评估时间**：{evaluation['evaluated_at']}")
+    meta_block = "  ·  ".join(meta)
 
----
+    content = f"# 职位评估报告 · {evaluation['company']} · {evaluation['title']}\n\n"
+    if meta_block:
+        content += f"{meta_block}\n\n---\n\n"
+    content += clean_body + "\n"
 
-{evaluation['full_report']}
-"""
     filepath.write_text(content, encoding="utf-8")
     return filepath

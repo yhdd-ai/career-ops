@@ -22,7 +22,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent
 sys.path.insert(0, str(BASE_DIR))
 
-from src import tracker, evaluator, pdf_gen, dashboard_gen
+from src import tracker, evaluator, pdf_gen, dashboard_gen, recommender
+from src.cv_importer import import_cv
 
 
 # ── 颜色输出 ────────────────────────────────────────────────────
@@ -154,6 +155,33 @@ def cmd_update(args):
         print(red(f"找不到 ID={args.id} 的职位"))
 
 
+# ── recommend 命令 ───────────────────────────────────────────────
+def cmd_recommend(args):
+    """根据方向，AI 推荐匹配的公司和职位"""
+    direction = args.direction or input("  请输入求职方向（如：大模型算法、Java后端、数据分析）：").strip()
+    if not direction:
+        print(red("方向不能为空"))
+        sys.exit(1)
+
+    print(f"\n  🔍 正在为「{direction}」生成推荐...")
+    try:
+        report = recommender.auto_recommend(direction)
+    except (ImportError, ValueError) as e:
+        print(red(f"✗ {e}"))
+        sys.exit(1)
+
+    # 打印报告
+    print("\n" + report)
+
+    # 保存到文件
+    path = recommender.save_recommend_report(direction, report)
+    print(green(f"\n  ✓ 推荐报告已保存：{path.name}"))
+
+    # 询问是否批量评估推荐的职位
+    if input(bold("\n  是否对推荐的职位逐一评估？(y/N) ")).strip().lower() == "y":
+        print(yellow("  请将招聘链接逐一传入：python3 run.py evaluate --url \"链接\""))
+
+
 # ── pdf 命令 ─────────────────────────────────────────────────────
 def cmd_pdf(args):
     job = tracker.get_job_by_id(args.id)
@@ -185,6 +213,16 @@ def cmd_dashboard(args):
         subprocess.run(["xdg-open", str(path)], check=False)
     else:
         print(blue(f"请在浏览器中打开：file://{path}"))
+
+
+# ── import-cv 命令 ──────────────────────────────────────────────
+def cmd_import_cv(args):
+    try:
+        path = import_cv(args.file, overwrite=args.overwrite)
+        print(green(f"✓ 简历已导入：{path}"))
+        print(grey("  可以开始评估职位了：python3 run.py evaluate --url \"...\""))
+    except Exception as e:
+        print(red(f"✗ 导入失败：{e}"))
 
 
 # ── stats 命令 ───────────────────────────────────────────────────
@@ -219,6 +257,15 @@ def main():
     )
     sub = parser.add_subparsers(dest="command")
 
+    # import-cv
+    p_cv = sub.add_parser("import-cv", help="导入简历文件（PDF/TXT/MD）到 cv.md")
+    p_cv.add_argument("file", help="简历文件路径，如 ~/Downloads/resume.pdf")
+    p_cv.add_argument("--overwrite", action="store_true", help="覆盖时不备份")
+
+    # recommend
+    p_rec = sub.add_parser("recommend", help="AI 根据方向推荐匹配职位")
+    p_rec.add_argument("--direction", default="", help="求职方向，如：大模型算法、Java后端")
+
     # evaluate（全自动）
     p_eval = sub.add_parser("evaluate", help="【全自动】URL → 爬取 → Claude 评估 → PDF")
     p_eval.add_argument("--url", default="", help="职位页面 URL（自动爬取 JD）")
@@ -252,12 +299,14 @@ def main():
     args = parser.parse_args()
 
     cmds = {
-        "evaluate": cmd_evaluate,
-        "list": cmd_list,
-        "update": cmd_update,
-        "pdf": cmd_pdf,
+        "import-cv": cmd_import_cv,
+        "evaluate":  cmd_evaluate,
+        "recommend": cmd_recommend,
+        "list":      cmd_list,
+        "update":    cmd_update,
+        "pdf":       cmd_pdf,
         "dashboard": cmd_dashboard,
-        "stats": cmd_stats,
+        "stats":     cmd_stats,
     }
 
     if args.command in cmds:
