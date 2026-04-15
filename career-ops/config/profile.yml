@@ -1,0 +1,103 @@
+# Career-Ops 个人偏好配置 — 岳淮东
+
+candidate:
+  name: "岳淮东"
+  university: "爱丁堡大学（QS 27）"
+  major: "统计学与数据科学（硕士）"
+  undergraduate: "辽宁大学 计算机科学与技术"
+  graduation: "2026.11"
+  available_from: "需结合学业安排"
+  internship_duration: "3-6个月"
+  english: "雅思6.5，可作工作语言"
+
+# 核心竞争力（供评估时参考）
+strengths:
+  - "阿里巴巴大模型算法实习经验（NLP / RAG / Text-to-SQL）"
+  - "平安银行正式后端开发工作经历（1年，Java / SpringBoot）"
+  - "QS27 爱丁堡大学硕士在读（统计+机器学习）"
+  - "独立完成 LLM 全栈项目经验"
+  - "英语工作语言能力"
+
+# 目标岗位类型（按优先级）
+target_roles:
+  - 后端开发（Java / Go）
+  - AI/大模型算法
+  - 数据开发 / 数据工程
+  - 机器学习工程
+  - 软件开发（全栈）
+  - 运营（数据驱动类）
+  - 市场营销（数字化 / 增长方向）
+
+# 目标城市
+preferred_locations:
+  - 北京
+  - 上海
+  - 深圳
+  - 杭州
+  - 远程/线上
+
+# 目标行业（按优先级）
+preferred_industries:
+  - 互联网/科技大厂
+  - 人工智能 / 大模型
+  - 金融科技
+  - 云计算
+  - 数据服务
+
+# 公司偏好
+company_preferences:
+  prefer_known_brands: true
+  notes: "有阿里和平安银行背书，可优先冲大厂；也欢迎AI独角兽"
+  avoid_companies: []
+
+# 薪资期望
+compensation:
+  min_daily: 150         # 最低日薪（元）
+  preferred_daily: 300   # 期望日薪（元）
+
+# 评估权重（总分100）
+scoring_weights:
+  role_match: 25         # 岗位匹配度
+  growth_potential: 20   # 成长空间
+  company_quality: 15    # 公司质量
+  location_fit: 10       # 地点匹配
+  compensation: 10       # 薪资水平
+  experience_match: 10   # 经验要求匹配
+  workload_culture: 10   # 工作强度与文化
+
+# 阈值
+auto_reject_threshold: 40
+strong_recommend_threshold: 75
+
+# 评估加分项（针对岳淮东背景的特殊规则）
+bonus_signals:
+  - keyword: "大模型"
+    bonus: 5
+    reason: "与阿里实习经验高度匹配"
+  - keyword: "LLM"
+    bonus: 5
+    reason: "核心技术栈"
+  - keyword: "RAG"
+    bonus: 5
+    reason: "项目实战经验"
+  - keyword: "Java"
+    bonus: 3
+    reason: "主力语言"
+  - keyword: "Go"
+    bonus: 3
+    reason: "有项目经验"
+  - keyword: "数据科学"
+    bonus: 3
+    reason: "在读硕士专业"
+
+# 减分项
+penalty_signals:
+  - keyword: "C++"
+    penalty: -5
+    reason: "非主力语言，需要额外学习成本"
+  - keyword: "前端"
+    penalty: -8
+    reason: "非目标方向"
+  - keyword: "销售"
+    penalty: -10
+    reason: "非目标方向"

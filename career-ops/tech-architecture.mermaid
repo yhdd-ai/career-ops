@@ -1,0 +1,61 @@
+flowchart TD
+    subgraph INPUT ["📥 输入层"]
+        A[招聘平台 URL\n实习僧 / 牛客 / 大厂官网]
+    end
+
+    subgraph SCRAPE ["🌐 爬取层（Playwright）"]
+        B[启动无头浏览器]
+        C[处理登录态 / 反爬]
+        D[提取 JD 结构化文本]
+        B --> C --> D
+    end
+
+    subgraph CONTEXT ["📚 上下文组装"]
+        E[cv.md 简历]
+        F[profile.yml 偏好]
+        G[modes/evaluate.md 评分规则]
+        H[构建完整 Prompt]
+        E & F & G --> H
+    end
+
+    subgraph LLM ["🤖 大模型推理层（Claude）"]
+        I[Claude Code / API]
+        J["7维度评分\n岗位匹配 / 成长空间 / 公司质量\n地点 / 薪资 / 经验 / 文化"]
+        K[输出结构化报告文本]
+        I --> J --> K
+    end
+
+    subgraph PARSE ["⚙️ 解析层"]
+        L[正则提取 score / grade]
+        M[维度分数解析]
+        N[生成 Job 数据结构]
+        L & M --> N
+    end
+
+    subgraph OUTPUT ["📤 输出层"]
+        O[data/jobs.json\n职位追踪记录]
+        P[reports/*.md\nMarkdown 报告]
+        Q[reports/*.pdf\nPDF 报告]
+        R[dashboard/index.html\n可视化看板]
+    end
+
+    subgraph BATCH ["⚡ 批量模式（进阶）"]
+        S[batch/jobs.txt\n待处理 URL 列表]
+        T[并行启动多个 Claude 实例]
+        U[状态管理 / 失败重试]
+        S --> T --> U
+    end
+
+    A --> B
+    D --> H
+    H --> I
+    K --> L
+    N --> O & P & Q
+    O --> R
+
+    S -.->|批量输入| B
+    U -.->|汇总结果| O
+
+    style LLM fill:#1a1a2e,color:#fff,stroke:#5e60ce
+    style BATCH fill:#16213e,color:#aaa,stroke:#444,stroke-dasharray:5
+    style INPUT fill:#0d1117,color:#fff,stroke:#333

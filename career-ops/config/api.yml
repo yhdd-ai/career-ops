@@ -1,0 +1,6 @@
+# Claude API 配置
+# 填入你的 API Key 后，系统即可全自动评估职位
+
+anthropic_api_key: "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"
+model: "claude-opus-4-6"                               # 推荐用 opus，质量最高
+max_tokens: 4096

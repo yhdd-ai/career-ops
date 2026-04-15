@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "company": "美团",
+    "title": "大模型平台开发工程师",
+    "location": "北京",
+    "score": 67,
+    "grade": "C",
+    "status": "待申请",
+    "url": "https://zhaopin.meituan.com/web/position/detail?jobUnionId=4214730848",
+    "notes": "需先确认是否为校招/实习岗位，社招则经验不足",
+    "dimensions": {
+      "role_match": 52,
+      "growth_potential": 82,
+      "company_quality": 88,
+      "location_fit": 95,
+      "compensation": 50,
+      "experience_match": 15,
+      "workload_culture": 65
+    },
+    "recommendation": "可以尝试（确认校招前提下）——方向匹配但经验门槛是主要障碍",
+    "full_report": "综合评分：67/100  |  等级：C\n\n维度评分\n  岗位匹配度     52/100  █████░░░░░  (权重25%)\n  成长空间       82/100  ████████░░  (权重20%)\n  公司质量       88/100  █████████░  (权重15%)\n  地点匹配       95/100  █████████░  (权重10%)\n  薪资水平       50/100  █████░░░░░  (权重10%)\n  经验要求匹配   15/100  █░░░░░░░░░  (权重10%)\n  工作强度与文化 65/100  ██████░░░░  (权重10%)\n\n优势亮点\n  • 阿里大模型平台实习经历与该岗位方向高度重叠\n  • RAG、Embedding微调、向量数据库与JD加分项直接对应\n  • 美团是互联网头部公司，背书价值极高\n  • 北京岗位，符合偏好城市\n\n风险与劣势\n  • JD要求3年及以上开发经验，您目前约1.5年，差距明显\n  • 岗位侧重平台工程（分布式训练、Triton部署），与您应用层经验有偏差\n  • 无PyTorch/TensorFlow训练框架经验\n\n最终推荐\n  可以尝试（确认是实习/校招前提下）\n  方向非常匹配，经验门槛是主要障碍\n",
+    "evaluated_at": "2026-04-14 23:57",
+    "applied_at": null
+  }
+]

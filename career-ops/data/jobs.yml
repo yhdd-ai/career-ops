@@ -1,0 +1,17 @@
+# 职位追踪记录
+# 此文件自动更新，记录所有已评估的职位
+
+jobs: []
+
+# 示例格式（评估后自动追加）：
+# jobs:
+#   - id: 001
+#     company: "字节跳动"
+#     title: "产品实习生"
+#     location: "北京"
+#     score: 82
+#     grade: "B"
+#     evaluated_at: "2025-06-01"
+#     status: "待申请"  # 待申请 / 已申请 / 面试中 / 已拿offer / 已拒绝
+#     url: "https://..."
+#     notes: ""
