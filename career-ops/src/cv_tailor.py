@@ -3,32 +3,17 @@ CV 定向裁剪引擎
 根据 JD 自动生成针对特定职位的简历裁剪版本。
 """
 import re
-import yaml
 from pathlib import Path
 from datetime import datetime
+from src.utils import load_cv, load_mode
 
 BASE_DIR = Path(__file__).parent.parent
 
 
-
-def _load_cv() -> str:
-    cv_path = BASE_DIR / "cv.md"
-    if not cv_path.exists():
-        raise FileNotFoundError("找不到 cv.md，请先导入简历：python3 run.py import-cv <file>")
-    return cv_path.read_text(encoding="utf-8")
-
-
-def _load_tailor_mode() -> str:
-    mode_path = BASE_DIR / "modes" / "tailor_cv.md"
-    if not mode_path.exists():
-        raise FileNotFoundError("找不到 modes/tailor_cv.md")
-    return mode_path.read_text(encoding="utf-8")
-
-
 def build_tailor_prompt(jd_text: str, company: str = "", title: str = "") -> str:
     """构建 CV 裁剪提示词"""
-    cv = _load_cv()
-    mode = _load_tailor_mode()
+    cv   = load_cv()
+    mode = load_mode("tailor_cv")
 
     target_info = ""
     if company or title:

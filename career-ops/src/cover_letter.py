@@ -4,29 +4,15 @@
 """
 from pathlib import Path
 from datetime import datetime
+from src.utils import load_cv, load_mode
 
 BASE_DIR = Path(__file__).parent.parent
 
 
-
-def _load_cv() -> str:
-    cv_path = BASE_DIR / "cv.md"
-    if not cv_path.exists():
-        raise FileNotFoundError("找不到 cv.md，请先导入简历：python3 run.py import-cv <file>")
-    return cv_path.read_text(encoding="utf-8")
-
-
-def _load_cover_letter_mode() -> str:
-    mode_path = BASE_DIR / "modes" / "cover_letter.md"
-    if not mode_path.exists():
-        raise FileNotFoundError("找不到 modes/cover_letter.md")
-    return mode_path.read_text(encoding="utf-8")
-
-
 def build_cover_letter_prompt(jd_text: str, company: str = "", title: str = "") -> str:
     """构建求职信生成提示词"""
-    cv = _load_cv()
-    mode = _load_cover_letter_mode()
+    cv   = load_cv()
+    mode = load_mode("cover_letter")
 
     prompt = f"""你是一位资深 HR 顾问，请根据以下候选人简历和目标职位信息，生成一封专业的求职信。
 

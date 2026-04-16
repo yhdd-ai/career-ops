@@ -31,6 +31,7 @@ from src import tracker, evaluator, pdf_gen, dashboard_gen, recommender
 from src.cv_importer import import_cv
 from src import cv_tailor, cover_letter as cl
 from src import ab_test as ab
+from src import star_bank
 
 
 # ── 颜色输出 ─────────────────────────────────────────────────────
@@ -131,6 +132,17 @@ def cmd_evaluate(args):
     print(f"\n{gc(bold(grade_str))} · {args.company} · {args.title}")
     print(green(f"  ✓ ID={job['id']}  报告：{rpt_path.name}  PDF：{pdf_path.name}"))
     print(green(f"  ✓ 看板已更新"))
+
+    # ── 可选：生成 STAR 故事并追加到故事库 ──
+    if getattr(args, "star", False):
+        try:
+            story = star_bank.generate_story(
+                jd_text, args.company, args.title, backend=args.backend)
+            star_bank.append_story(story, args.company, args.title)
+            count = star_bank.get_story_count()
+            print(green(f"  ✓ STAR 故事已追加（故事库共 {count} 条）：reports/story_bank.md"))
+        except Exception as e:
+            print(yellow(f"  ⚠ STAR 故事生成失败（不影响评估结果）：{e}"))
 
 
 # ── recommend ────────────────────────────────────────────────────
@@ -327,6 +339,56 @@ def cmd_gen_cv_summary(args):
     print(summary)
 
 
+# ── stories ──────────────────────────────────────────────────────
+def cmd_stories(args):
+    action = args.stories_action
+
+    if action == "list" or not action:
+        stories = star_bank.list_stories()
+        if not stories:
+            print(yellow("故事库为空。评估职位时加 --star 自动生成："))
+            print(grey("  python run.py evaluate --url <url> --star"))
+            return
+        print(bold(f"\n⭐ STAR 故事库（共 {len(stories)} 条）\n"))
+        print(f"  {'#':>3}  {'公司':<14} {'职位':<18} {'时间':<17} 预览")
+        print("  " + "─" * 70)
+        for s in stories:
+            print(f"  {s['id']:>3}  {s['company']:<14} {s['title']:<18} "
+                  f"{s['timestamp']:<17} {grey(s['preview'][:28])}")
+        print(grey(f"\n  完整故事库：reports/story_bank.md"))
+
+    elif action == "search":
+        if not args.keyword:
+            print(red("请用 --keyword 指定搜索关键词"))
+            sys.exit(1)
+        results = star_bank.search_stories(args.keyword)
+        if not results:
+            print(yellow(f"未找到包含「{args.keyword}」的故事"))
+            return
+        print(bold(f"\n搜索「{args.keyword}」，命中 {len(results)} 条：\n"))
+        for s in results:
+            print(f"  #{s['id']} {s['company']} · {s['title']}  ({s['timestamp']})")
+            print(f"     {grey(s['preview'])}\n")
+
+    elif action == "gen":
+        jd_text = _read_jd(args)
+        if not jd_text.strip():
+            print(red("错误：JD 内容为空"))
+            sys.exit(1)
+        _ensure_company_title(args)
+        try:
+            story = star_bank.generate_story(
+                jd_text, args.company, args.title, backend=args.backend)
+            path  = star_bank.append_story(story, args.company, args.title)
+            count = star_bank.get_story_count()
+            print(f"\n{bold('──── STAR 故事预览 ────')}")
+            print(story)
+            print(green(f"\n  ✓ 已追加到故事库（共 {count} 条）：{path.name}"))
+        except Exception as e:
+            print(red(f"✗ {e}"))
+            sys.exit(1)
+
+
 # ── ab-test ──────────────────────────────────────────────────────
 def cmd_ab_test(args):
     jd_text = _read_jd(args)
@@ -409,6 +471,7 @@ def main():
     p_eval.add_argument("--location", default="", help="工作地点")
     p_eval.add_argument("--visible",   action="store_true", help="显示浏览器窗口（调试用）")
     p_eval.add_argument("--no-cache",  action="store_true", help="忽略缓存，强制重新评估")
+    p_eval.add_argument("--star",      action="store_true", help="评估后自动生成 STAR 面试故事并追加到故事库")
 
     # recommend
     p_rec = sub.add_parser("recommend", help="AI 根据方向推荐匹配职位")
@@ -431,6 +494,19 @@ def main():
     p_cl.add_argument("--company", default="", help="公司名称")
     p_cl.add_argument("--title",   default="", help="职位名称")
     p_cl.add_argument("--visible", action="store_true", help="显示浏览器窗口（调试用）")
+
+    # stories
+    p_stories = sub.add_parser("stories", help="管理 STAR 面试故事库")
+    p_stories.add_argument("stories_action", nargs="?", default="list",
+                           choices=["list", "search", "gen"],
+                           help="list（查看，默认）| search（搜索）| gen（手动生成）")
+    p_stories.add_argument("--keyword", default="", help="配合 search 使用，搜索关键词")
+    p_stories.add_argument("--url",     default="", help="配合 gen 使用，职位 URL")
+    p_stories.add_argument("--jd",      default="", help="配合 gen 使用，JD 文本")
+    p_stories.add_argument("--jd-file", default="", help="配合 gen 使用，JD 文件路径")
+    p_stories.add_argument("--company", default="", help="公司名称")
+    p_stories.add_argument("--title",   default="", help="职位名称")
+    p_stories.add_argument("--visible", action="store_true", help="显示浏览器窗口")
 
     # ab-test
     p_ab = sub.add_parser("ab-test",
@@ -482,6 +558,7 @@ def main():
         "recommend":      cmd_recommend,
         "tailor-cv":      cmd_tailor_cv,
         "cover-letter":   cmd_cover_letter,
+        "stories":        cmd_stories,
         "ab-test":        cmd_ab_test,
         "cache":          cmd_cache,
         "models":         cmd_models,

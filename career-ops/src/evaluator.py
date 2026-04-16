@@ -3,9 +3,9 @@
 读取简历和配置，通过统一 LLM 接口评估 JD，并解析结构化结果。
 """
 import re
-import yaml
 from pathlib import Path
 from datetime import datetime
+from src.utils import load_cv, load_mode, load_profile
 
 
 def auto_evaluate(jd_text: str, company: str = "", title: str = "",
@@ -40,28 +40,6 @@ def auto_evaluate(jd_text: str, company: str = "", title: str = "",
 BASE_DIR = Path(__file__).parent.parent
 
 
-def load_cv() -> str:
-    cv_path = BASE_DIR / "cv.md"
-    if not cv_path.exists():
-        raise FileNotFoundError("找不到 cv.md，请先完善您的简历")
-    return cv_path.read_text(encoding="utf-8")
-
-
-def load_profile() -> dict:
-    profile_path = BASE_DIR / "config" / "profile.yml"
-    if not profile_path.exists():
-        raise FileNotFoundError("找不到 config/profile.yml")
-    with open(profile_path, encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
-
-def load_evaluate_mode() -> str:
-    mode_path = BASE_DIR / "modes" / "evaluate.md"
-    if not mode_path.exists():
-        raise FileNotFoundError("找不到 modes/evaluate.md")
-    return mode_path.read_text(encoding="utf-8")
-
-
 def build_evaluation_prompt(jd_text: str, use_summary: bool = True) -> str:
     """
     生成评估提示词。
@@ -70,10 +48,10 @@ def build_evaluation_prompt(jd_text: str, use_summary: bool = True) -> str:
     """
     from src.token_optimizer import get_cv_summary, truncate_jd, check_prompt_size
 
-    cv = get_cv_summary() if use_summary else load_cv()
+    cv      = get_cv_summary() if use_summary else load_cv()
     jd_text = truncate_jd(jd_text)
     profile = load_profile()
-    mode = load_evaluate_mode()
+    mode    = load_mode("evaluate")
 
     preferred_locations = "、".join(profile.get("preferred_locations", []))
     target_roles = "、".join(profile.get("target_roles", []))
