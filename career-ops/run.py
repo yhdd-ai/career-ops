@@ -129,7 +129,10 @@ def cmd_evaluate(args):
 
     gc = grade_color(job["grade"])
     grade_str = f' {job["grade"]} 级 {job["score"]}/100'
-    print(f"\n{gc(bold(grade_str))} · {args.company} · {args.title}")
+    arc_label = result.get("archetype_label", "")
+    arc_method = result.get("archetype_method", "")
+    arc_tag = f"  [{arc_label}]" if arc_label else ""
+    print(f"\n{gc(bold(grade_str))}{grey(arc_tag)} · {args.company} · {args.title}")
     print(green(f"  ✓ ID={job['id']}  报告：{rpt_path.name}  PDF：{pdf_path.name}"))
     print(green(f"  ✓ 看板已更新"))
 

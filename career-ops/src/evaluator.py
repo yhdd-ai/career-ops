@@ -12,11 +12,15 @@ def auto_evaluate(jd_text: str, company: str = "", title: str = "",
                   location: str = "", url: str = "",
                   backend: str = "auto", use_cache: bool = True) -> dict:
     """
-    全自动评估：通过统一 LLM 接口调用模型，返回解析后的职位评估字典。
+    两阶段评估 Pipeline：
+      Stage 1 — Archetype 分类（关键词规则优先，置信度低时回退 LLM）
+      Stage 2 — 带 Archetype 权重的 JD 评估
+
     backend:   "auto" | "claude" | "ollama"
     use_cache: True 时先查缓存，命中则直接返回；False 时强制重新评估
     """
     from src import cache as eval_cache
+    from src.archetype import classify
 
     # ① 查缓存
     if use_cache:
@@ -25,14 +29,24 @@ def auto_evaluate(jd_text: str, company: str = "", title: str = "",
             print("  ✦ 命中缓存，跳过 LLM 调用")
             return cached
 
-    # ② 调用 LLM
+    # ② Stage 1：Archetype 分类
+    archetype, method = classify(jd_text, backend=backend)
+    method_label = {"rule": "关键词规则", "llm": "LLM语义", "default": "默认"}.get(method, method)
+    print(f"  🏷  岗位类型：{archetype.label}（{method_label}分类）")
+
+    # ③ Stage 2：带 Archetype 权重的评估
     from src.llm_client import get_client
     client     = get_client(backend)
-    prompt     = build_evaluation_prompt(jd_text)
+    prompt     = build_evaluation_prompt(jd_text, archetype=archetype)
     raw_result = client.chat(prompt)
     result     = parse_evaluation_result(raw_result, company, title, location, url)
 
-    # ③ 写入缓存
+    # 记录 Archetype 信息，方便后续分析
+    result["archetype_id"]    = archetype.id
+    result["archetype_label"] = archetype.label
+    result["archetype_method"]= method
+
+    # ④ 写入缓存
     eval_cache.put(url, jd_text, result)
 
     return result
@@ -40,24 +54,30 @@ def auto_evaluate(jd_text: str, company: str = "", title: str = "",
 BASE_DIR = Path(__file__).parent.parent
 
 
-def build_evaluation_prompt(jd_text: str, use_summary: bool = True) -> str:
+def build_evaluation_prompt(jd_text: str, use_summary: bool = True,
+                            archetype=None) -> str:
     """
     生成评估提示词。
     use_summary=True（默认）：使用 CV 压缩摘要，节省约 300 tokens。
     use_summary=False：使用完整 CV，适合需要精确匹配细节的场景。
+    archetype：Archetype 对象，用于注入岗位类型专属权重；None 则使用默认权重。
     """
     from src.token_optimizer import get_cv_summary, truncate_jd, check_prompt_size
+    from src.archetype import format_weights_block, DEFAULT_ARCHETYPE
 
     cv      = get_cv_summary() if use_summary else load_cv()
     jd_text = truncate_jd(jd_text)
     profile = load_profile()
     mode    = load_mode("evaluate")
 
-    preferred_locations = "、".join(profile.get("preferred_locations", []))
-    target_roles = "、".join(profile.get("target_roles", []))
+    arc = archetype if archetype is not None else DEFAULT_ARCHETYPE
+    weights_block = format_weights_block(arc)
+
+    preferred_locations  = "、".join(profile.get("preferred_locations", []))
+    target_roles         = "、".join(profile.get("target_roles", []))
     preferred_industries = "、".join(profile.get("preferred_industries", []))
-    min_daily = profile.get("compensation", {}).get("min_daily", 0)
-    preferred_daily = profile.get("compensation", {}).get("preferred_daily", 200)
+    min_daily            = profile.get("compensation", {}).get("min_daily", 0)
+    preferred_daily      = profile.get("compensation", {}).get("preferred_daily", 200)
 
     prompt = f"""你是一个专业的实习求职顾问。请根据以下候选人信息和评估规则，对给定的职位进行详细评估。
 
@@ -75,7 +95,12 @@ def build_evaluation_prompt(jd_text: str, use_summary: bool = True) -> str:
 期望日薪：{preferred_daily}元（最低：{min_daily}元）
 
 ═══════════════════════════════════════════
-评估规则（请严格按照此框架评分）
+岗位类型权重（覆盖默认权重，请严格遵守）
+═══════════════════════════════════════════
+{weights_block}
+
+═══════════════════════════════════════════
+评估规则（输出格式与评分细则）
 ═══════════════════════════════════════════
 {mode}
 
@@ -84,7 +109,7 @@ def build_evaluation_prompt(jd_text: str, use_summary: bool = True) -> str:
 ═══════════════════════════════════════════
 {jd_text}
 
-请按照评估规则中的输出格式，给出完整的职位评估报告。
+请按照评估规则中的输出格式，给出完整的职位评估报告。权重以【岗位类型权重】部分为准。
 """
     check_prompt_size(prompt, "evaluate prompt")
     return prompt
