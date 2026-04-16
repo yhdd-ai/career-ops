@@ -28,7 +28,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 from src import tracker, evaluator, recommender, pdf_gen, dashboard_gen
 from src.cv_importer import import_cv
-from src.ollama_client import chat, list_models, load_local_config
+from src.llm_client import get_client, OllamaClient, _load_yaml
 from src import cv_tailor, cover_letter as cl
 
 
@@ -45,26 +45,6 @@ def grade_color(grade):
             "C": yellow, "F": red}.get(grade, grey)
 
 
-# ── Ollama 版评估 ────────────────────────────────────────────────
-def ollama_evaluate(jd_text: str, company: str, title: str,
-                    location: str = "", url: str = "") -> dict:
-    cfg    = load_local_config()
-    model  = cfg.get("model", "qwen2.5:7b")
-    prompt = evaluator.build_evaluation_prompt(jd_text)
-
-    print(f"  🦙 正在调用本地模型 ({model})...")
-    raw = chat(prompt, cfg)
-    return evaluator.parse_evaluation_result(raw, company, title, location, url)
-
-
-# ── Ollama 版推荐 ────────────────────────────────────────────────
-def ollama_recommend(direction: str) -> str:
-    cfg   = load_local_config()
-    model = cfg.get("model", "qwen2.5:7b")
-    prompt = recommender.build_recommend_prompt(direction)
-
-    print(f"  🦙 正在调用本地模型 ({model})...")
-    return chat(prompt, cfg)
 
 
 # ── evaluate 命令 ────────────────────────────────────────────────
@@ -113,7 +93,7 @@ def cmd_evaluate(args):
     location = location or input("  工作地点（回车跳过）：").strip()
 
     try:
-        result = ollama_evaluate(jd_text, company, title, location, url)
+        result = evaluator.auto_evaluate(jd_text, company, title, location, url, backend="ollama")
     except (ConnectionError, TimeoutError) as e:
         print(red(f"✗ {e}"))
         sys.exit(1)
@@ -140,7 +120,7 @@ def cmd_recommend(args):
 
     print(f"\n  🔍 正在为「{direction}」生成推荐...")
     try:
-        report = ollama_recommend(direction)
+        report = recommender.auto_recommend(direction, backend="ollama")
     except (ConnectionError, TimeoutError) as e:
         print(red(f"✗ {e}"))
         sys.exit(1)
@@ -152,9 +132,12 @@ def cmd_recommend(args):
 
 # ── models 命令 ──────────────────────────────────────────────────
 def cmd_models(args):
-    cfg  = load_local_config()
-    base = cfg.get("ollama_base_url", "http://localhost:11434")
-    models = list_models(base)
+    cfg    = _load_yaml("config/api_local.yml")
+    client = OllamaClient(
+        base_url=cfg.get("ollama_base_url", "http://127.0.0.1:11434"),
+        model=cfg.get("model", "qwen2.5:latest")
+    )
+    models = client.list_models()
     if not models:
         print(yellow("未找到已安装模型，或 Ollama 未启动"))
         print(grey("  启动：ollama serve"))
@@ -162,8 +145,7 @@ def cmd_models(args):
         return
     print(bold(f"\n已安装模型（共 {len(models)} 个）："))
     for m in models:
-        cur = cfg.get("model", "")
-        tag = green(" ← 当前使用") if m == cur else ""
+        tag = green(" ← 当前使用") if m == client.model_name else ""
         print(f"  • {m}{tag}")
     print(grey(f"\n修改模型：编辑 config/api_local.yml 中的 model 字段"))
 
@@ -171,7 +153,6 @@ def cmd_models(args):
 # ── Ollama 版 tailor-cv ──────────────────────────────────────────
 def cmd_tailor_cv(args):
     from src.scraper import scrape_job
-    cfg = load_local_config()
 
     url, company, title, jd_text = args.url or "", args.company or "", args.title or "", ""
 
@@ -206,10 +187,7 @@ def cmd_tailor_cv(args):
     company = company or input("  公司名称：").strip()
     title   = title   or input("  职位名称：").strip()
 
-    prompt = cv_tailor.build_tailor_prompt(jd_text, company, title)
-    model  = cfg.get("model", "qwen2.5:latest")
-    print(f"  🦙 正在调用本地模型 ({model}) 裁剪简历...")
-    result = chat(prompt, cfg)
+    result = cv_tailor.tailor_cv(jd_text, company, title, backend="ollama")
 
     path = cv_tailor.save_tailored_cv(result, company, title)
     print(green(f"\n  ✓ 定向简历已生成：reports/tailored_cvs/{path.name}"))
@@ -218,7 +196,6 @@ def cmd_tailor_cv(args):
 # ── Ollama 版 cover-letter ────────────────────────────────────────
 def cmd_cover_letter(args):
     from src.scraper import scrape_job
-    cfg = load_local_config()
 
     url, company, title, jd_text = args.url or "", args.company or "", args.title or "", ""
 
@@ -253,10 +230,7 @@ def cmd_cover_letter(args):
     company = company or input("  公司名称：").strip()
     title   = title   or input("  职位名称：").strip()
 
-    prompt = cl.build_cover_letter_prompt(jd_text, company, title)
-    model  = cfg.get("model", "qwen2.5:latest")
-    print(f"  🦙 正在调用本地模型 ({model}) 生成求职信...")
-    letter = chat(prompt, cfg)
+    letter = cl.generate_cover_letter(jd_text, company, title, backend="ollama")
 
     path = cl.save_cover_letter(letter, company, title)
     print(f"\n{bold('──── 求职信预览 ────')}")
@@ -291,6 +265,17 @@ def cmd_import_cv(args):
         print(green(f"✓ 简历已导入：{path}"))
     except Exception as e:
         print(red(f"✗ 导入失败：{e}"))
+
+
+def cmd_gen_cv_summary(args):
+    from src.token_optimizer import rebuild_cv_summary, estimate_tokens
+    from pathlib import Path
+    summary = rebuild_cv_summary()
+    tokens_saved = estimate_tokens(Path("cv.md").read_text(encoding="utf-8")) - estimate_tokens(summary)
+    print(green(f"✓ CV 摘要已重建：config/cv_summary.md"))
+    print(grey(f"  摘要长度：{len(summary)} 字符 ≈ {estimate_tokens(summary)} tokens，节省约 {tokens_saved} tokens"))
+    print(bold("\n摘要预览："))
+    print(summary)
 
 
 # ── 主程序 ───────────────────────────────────────────────────────
@@ -334,6 +319,8 @@ def main():
     p_cv.add_argument("file", help="简历路径，如 ~/Downloads/resume.pdf")
     p_cv.add_argument("--overwrite", action="store_true")
 
+    sub.add_parser("gen-cv-summary", help="重建 CV 压缩摘要缓存")
+
     p_list = sub.add_parser("list", help="列出所有职位")
     p_upd  = sub.add_parser("update", help="更新申请状态")
     p_upd.add_argument("id", type=int)
@@ -342,8 +329,9 @@ def main():
 
     args = parser.parse_args()
     cmds = {
-        "import-cv":    cmd_import_cv,
-        "evaluate":     cmd_evaluate,
+        "import-cv":      cmd_import_cv,
+        "gen-cv-summary": cmd_gen_cv_summary,
+        "evaluate":       cmd_evaluate,
         "recommend":    cmd_recommend,
         "tailor-cv":    cmd_tailor_cv,
         "cover-letter": cmd_cover_letter,

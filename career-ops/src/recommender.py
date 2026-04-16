@@ -2,8 +2,6 @@
 AI 职位推荐模块
 根据用户指定方向，调用 Claude API 推荐匹配的公司和职位
 """
-import re
-import yaml
 from pathlib import Path
 from datetime import datetime
 
@@ -15,14 +13,15 @@ def _load_file(path: Path) -> str:
 
 
 def build_recommend_prompt(direction: str) -> str:
-    cv      = _load_file(BASE_DIR / "cv.md")
+    from src.token_optimizer import get_cv_summary, check_prompt_size
+    cv      = get_cv_summary()
     profile = _load_file(BASE_DIR / "config" / "profile.yml")
     mode    = _load_file(BASE_DIR / "modes" / "recommend.md")
 
-    return f"""你是一个专业的实习求职顾问。请根据以下候选人信息，为其推荐匹配的实习职位。
+    prompt = f"""你是一个专业的实习求职顾问。请根据以下候选人信息，为其推荐匹配的实习职位。
 
 ═══════════════════════════════════════
-候选人简历
+候选人简历摘要
 ═══════════════════════════════════════
 {cv}
 
@@ -43,36 +42,15 @@ def build_recommend_prompt(direction: str) -> str:
 
 请按照推荐规则中的输出格式，给出完整的职位推荐报告。
 """
+    check_prompt_size(prompt, "recommend prompt")
+    return prompt
 
 
-def auto_recommend(direction: str) -> str:
-    """调用 Claude API，返回推荐报告文本"""
-    try:
-        import anthropic
-    except ImportError:
-        raise ImportError("请先安装：pip install anthropic")
-
-    cfg_path = BASE_DIR / "config" / "api.yml"
-    cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
-
-    import os
-    api_key = cfg.get("anthropic_api_key", "") or os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key or "xxx" in api_key:
-        raise ValueError("请在 config/api.yml 中填入有效的 anthropic_api_key")
-
-    model      = cfg.get("model", "claude-opus-4-6")
-    max_tokens = cfg.get("max_tokens", 4096)
-    prompt     = build_recommend_prompt(direction)
-
-    client = anthropic.Anthropic(api_key=api_key)
-    print(f"  🤖 正在调用 Claude API ({model})...")
-
-    response = client.messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.content[0].text
+def auto_recommend(direction: str, backend: str = "auto") -> str:
+    """通过统一 LLM 接口返回推荐报告文本"""
+    from src.llm_client import get_client
+    client = get_client(backend)
+    return client.chat(build_recommend_prompt(direction))
 
 
 def save_recommend_report(direction: str, report: str) -> Path:

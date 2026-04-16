@@ -2,20 +2,11 @@
 求职信生成引擎
 根据简历和 JD 自动生成针对特定职位的中文求职信。
 """
-import os
-import yaml
 from pathlib import Path
 from datetime import datetime
 
 BASE_DIR = Path(__file__).parent.parent
 
-
-def _load_api_config() -> dict:
-    api_path = BASE_DIR / "config" / "api.yml"
-    if not api_path.exists():
-        return {}
-    with open(api_path, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
 
 
 def _load_cv() -> str:
@@ -62,33 +53,12 @@ def build_cover_letter_prompt(jd_text: str, company: str = "", title: str = "") 
     return prompt
 
 
-def generate_cover_letter(jd_text: str, company: str = "", title: str = "") -> str:
-    """
-    调用 Claude API 生成求职信，返回求职信文本。
-    """
-    try:
-        import anthropic
-    except ImportError:
-        raise ImportError("请先安装：pip install anthropic")
-
-    cfg = _load_api_config()
-    api_key = cfg.get("anthropic_api_key", "") or os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key or api_key.startswith("sk-ant-xxx"):
-        raise ValueError("请在 config/api.yml 中填入有效的 anthropic_api_key")
-
-    model = cfg.get("model", "claude-opus-4-6")
-    max_tokens = cfg.get("max_tokens", 2048)
-
-    prompt = build_cover_letter_prompt(jd_text, company, title)
-
-    client = anthropic.Anthropic(api_key=api_key)
-    print(f"  🤖 正在调用 Claude API ({model}) 生成求职信...")
-    response = client.messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.content[0].text
+def generate_cover_letter(jd_text: str, company: str = "", title: str = "",
+                          backend: str = "auto") -> str:
+    """通过统一 LLM 接口生成求职信"""
+    from src.llm_client import get_client
+    client = get_client(backend)
+    return client.chat(build_cover_letter_prompt(jd_text, company, title), max_tokens=2048)
 
 
 def save_cover_letter(letter_text: str, company: str, title: str) -> Path:

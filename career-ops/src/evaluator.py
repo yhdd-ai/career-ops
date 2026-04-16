@@ -1,52 +1,24 @@
 """
 职位评估引擎
-读取简历和配置，自动调用 Claude API 评估 JD，并解析结构化结果。
+读取简历和配置，通过统一 LLM 接口评估 JD，并解析结构化结果。
 """
-import os
-import json
+import re
 import yaml
 from pathlib import Path
 from datetime import datetime
 
 
-def load_api_config() -> dict:
-    api_path = BASE_DIR / "config" / "api.yml"
-    if not api_path.exists():
-        return {}
-    with open(api_path, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
-
-
 def auto_evaluate(jd_text: str, company: str = "", title: str = "",
-                  location: str = "", url: str = "") -> dict:
+                  location: str = "", url: str = "",
+                  backend: str = "auto") -> dict:
     """
-    全自动评估：调用 Claude API，返回解析后的职位评估字典。
-    需要 config/api.yml 中配置 anthropic_api_key。
+    全自动评估：通过统一 LLM 接口调用模型，返回解析后的职位评估字典。
+    backend: "auto" | "claude" | "ollama"
     """
-    try:
-        import anthropic
-    except ImportError:
-        raise ImportError("请先安装：pip install anthropic")
-
-    cfg = load_api_config()
-    api_key = cfg.get("anthropic_api_key", "") or os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key or api_key.startswith("sk-ant-xxx"):
-        raise ValueError("请在 config/api.yml 中填入有效的 anthropic_api_key")
-
-    model = cfg.get("model", "claude-opus-4-6")
-    max_tokens = cfg.get("max_tokens", 4096)
-
+    from src.llm_client import get_client
+    client = get_client(backend)
     prompt = build_evaluation_prompt(jd_text)
-
-    client = anthropic.Anthropic(api_key=api_key)
-    print(f"  🤖 正在调用 Claude API ({model})...")
-    response = client.messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    raw_result = response.content[0].text
+    raw_result = client.chat(prompt)
     return parse_evaluation_result(raw_result, company, title, location, url)
 
 BASE_DIR = Path(__file__).parent.parent
@@ -74,9 +46,16 @@ def load_evaluate_mode() -> str:
     return mode_path.read_text(encoding="utf-8")
 
 
-def build_evaluation_prompt(jd_text: str) -> str:
-    """生成完整评估提示词，可粘贴到任何 AI 对话中使用"""
-    cv = load_cv()
+def build_evaluation_prompt(jd_text: str, use_summary: bool = True) -> str:
+    """
+    生成评估提示词。
+    use_summary=True（默认）：使用 CV 压缩摘要，节省约 300 tokens。
+    use_summary=False：使用完整 CV，适合需要精确匹配细节的场景。
+    """
+    from src.token_optimizer import get_cv_summary, truncate_jd, check_prompt_size
+
+    cv = get_cv_summary() if use_summary else load_cv()
+    jd_text = truncate_jd(jd_text)
     profile = load_profile()
     mode = load_evaluate_mode()
 
@@ -89,7 +68,7 @@ def build_evaluation_prompt(jd_text: str) -> str:
     prompt = f"""你是一个专业的实习求职顾问。请根据以下候选人信息和评估规则，对给定的职位进行详细评估。
 
 ═══════════════════════════════════════════
-候选人简历
+候选人简历摘要
 ═══════════════════════════════════════════
 {cv}
 
@@ -113,6 +92,7 @@ def build_evaluation_prompt(jd_text: str) -> str:
 
 请按照评估规则中的输出格式，给出完整的职位评估报告。
 """
+    check_prompt_size(prompt, "evaluate prompt")
     return prompt
 
 
@@ -132,16 +112,16 @@ def parse_evaluation_result(raw_result: str, company: str, title: str,
     grade_match = re.search(r'等级[：:]\s*([A-F])', raw_result)
     grade = grade_match.group(1) if grade_match else "?"
 
-    # 提取各维度分数
+    # 提取各维度分数（兼容表格格式 "| 岗位匹配度 | 85/100 |" 和纯文本 "岗位匹配度 85"）
     dimensions = {}
     dim_patterns = {
-        "role_match": r'岗位匹配度\s+(\d+)',
-        "growth_potential": r'成长空间\s+(\d+)',
-        "company_quality": r'公司质量\s+(\d+)',
-        "location_fit": r'地点匹配\s+(\d+)',
-        "compensation": r'薪资水平\s+(\d+)',
-        "experience_match": r'经验要求匹配\s+(\d+)',
-        "workload_culture": r'工作强度与文化\s+(\d+)',
+        "role_match":       r'岗位匹配度[^\d]*(\d+)',
+        "growth_potential": r'成长空间[^\d]*(\d+)',
+        "company_quality":  r'公司质量[^\d]*(\d+)',
+        "location_fit":     r'地点匹配[^\d]*(\d+)',
+        "compensation":     r'薪资水平[^\d]*(\d+)',
+        "experience_match": r'经验要求匹配[^\d]*(\d+)',
+        "workload_culture": r'工作强度与文化[^\d]*(\d+)',
     }
     for key, pattern in dim_patterns.items():
         m = re.search(pattern, raw_result)

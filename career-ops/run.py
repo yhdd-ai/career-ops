@@ -93,16 +93,11 @@ def cmd_evaluate(args):
     title    = title    or input("  职位名称：").strip()
     location = location or input("  工作地点（可回车跳过）：").strip()
 
-    # 调用 API
+    # 调用 LLM（统一接口，自动选 Claude/Ollama）
     try:
-        result = evaluator.auto_evaluate(jd_text, company, title, location, url)
-    except ImportError:
-        print(red("✗ 未安装 anthropic 包"))
-        print(yellow("  请在您自己的电脑上运行：pip install anthropic"))
-        sys.exit(1)
-    except ValueError as e:
+        result = evaluator.auto_evaluate(jd_text, company, title, location, url, backend="claude")
+    except (ImportError, ValueError) as e:
         print(red(f"✗ {e}"))
-        print(yellow("  请在 config/api.yml 中填入有效的 anthropic_api_key"))
         sys.exit(1)
 
     # 保存职位
@@ -166,7 +161,7 @@ def cmd_recommend(args):
 
     print(f"\n  🔍 正在为「{direction}」生成推荐...")
     try:
-        report = recommender.auto_recommend(direction)
+        report = recommender.auto_recommend(direction, backend="claude")
     except (ImportError, ValueError) as e:
         print(red(f"✗ {e}"))
         sys.exit(1)
@@ -268,7 +263,7 @@ def cmd_tailor_cv(args):
     title   = title   or input("  职位名称：").strip()
 
     try:
-        result = cv_tailor.tailor_cv(jd_text, company, title)
+        result = cv_tailor.tailor_cv(jd_text, company, title, backend="claude")
     except (ImportError, ValueError) as e:
         print(red(f"✗ {e}"))
         sys.exit(1)
@@ -320,7 +315,7 @@ def cmd_cover_letter(args):
     title   = title   or input("  职位名称：").strip()
 
     try:
-        letter = cl.generate_cover_letter(jd_text, company, title)
+        letter = cl.generate_cover_letter(jd_text, company, title, backend="claude")
     except (ImportError, ValueError) as e:
         print(red(f"✗ {e}"))
         sys.exit(1)
@@ -329,6 +324,19 @@ def cmd_cover_letter(args):
     print(f"\n{bold('──── 求职信预览 ────')}")
     print(letter)
     print(green(f"\n  ✓ 求职信已保存：reports/cover_letters/{path.name}"))
+
+
+# ── gen-cv-summary 命令 ──────────────────────────────────────────
+def cmd_gen_cv_summary(args):
+    """重建 CV 压缩摘要缓存（cv.md 更新后使用）"""
+    from src.token_optimizer import rebuild_cv_summary, estimate_tokens
+    summary = rebuild_cv_summary()
+    tokens_saved = estimate_tokens(Path("cv.md").read_text(encoding="utf-8")) - estimate_tokens(summary)
+    print(green(f"✓ CV 摘要已重建：config/cv_summary.md"))
+    print(grey(f"  摘要长度：{len(summary)} 字符 ≈ {estimate_tokens(summary)} tokens"))
+    print(grey(f"  每次评估节省约 {tokens_saved} tokens"))
+    print(bold("\n摘要预览："))
+    print(summary)
 
 
 # ── stats 命令 ───────────────────────────────────────────────────
@@ -412,6 +420,9 @@ def main():
     p_cl.add_argument("--company", default="", help="公司名称")
     p_cl.add_argument("--title", default="", help="职位名称")
 
+    # gen-cv-summary
+    sub.add_parser("gen-cv-summary", help="重建 CV 压缩摘要缓存（cv.md 更新后使用）")
+
     # dashboard
     sub.add_parser("dashboard", help="生成并打开 HTML 看板")
 
@@ -421,8 +432,9 @@ def main():
     args = parser.parse_args()
 
     cmds = {
-        "import-cv":    cmd_import_cv,
-        "evaluate":     cmd_evaluate,
+        "import-cv":      cmd_import_cv,
+        "gen-cv-summary": cmd_gen_cv_summary,
+        "evaluate":       cmd_evaluate,
         "recommend":    cmd_recommend,
         "tailor-cv":    cmd_tailor_cv,
         "cover-letter": cmd_cover_letter,
