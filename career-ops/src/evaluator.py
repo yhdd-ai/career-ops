@@ -10,16 +10,32 @@ from datetime import datetime
 
 def auto_evaluate(jd_text: str, company: str = "", title: str = "",
                   location: str = "", url: str = "",
-                  backend: str = "auto") -> dict:
+                  backend: str = "auto", use_cache: bool = True) -> dict:
     """
     全自动评估：通过统一 LLM 接口调用模型，返回解析后的职位评估字典。
-    backend: "auto" | "claude" | "ollama"
+    backend:   "auto" | "claude" | "ollama"
+    use_cache: True 时先查缓存，命中则直接返回；False 时强制重新评估
     """
+    from src import cache as eval_cache
+
+    # ① 查缓存
+    if use_cache:
+        cached = eval_cache.get(url, jd_text)
+        if cached:
+            print("  ✦ 命中缓存，跳过 LLM 调用")
+            return cached
+
+    # ② 调用 LLM
     from src.llm_client import get_client
-    client = get_client(backend)
-    prompt = build_evaluation_prompt(jd_text)
+    client     = get_client(backend)
+    prompt     = build_evaluation_prompt(jd_text)
     raw_result = client.chat(prompt)
-    return parse_evaluation_result(raw_result, company, title, location, url)
+    result     = parse_evaluation_result(raw_result, company, title, location, url)
+
+    # ③ 写入缓存
+    eval_cache.put(url, jd_text, result)
+
+    return result
 
 BASE_DIR = Path(__file__).parent.parent
 
