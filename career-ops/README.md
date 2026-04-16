@@ -15,7 +15,81 @@
 | 📄 **PDF 报告生成** | 每次评估自动生成带维度进度条的中文 PDF |
 | 📊 **可视化看板** | 深色主题 HTML 看板，支持筛选、搜索、状态追踪 |
 | 🎯 **AI 职位推荐** | 输入求职方向，AI 推荐 10–15 个匹配公司和职位 |
+| 📝 **定向简历裁剪** | 针对每个 JD 自动重排经历、对齐关键词，生成定制版简历 |
+| 💌 **求职信生成** | 基于简历和 JD 一键生成专业中文求职信，引用真实数据 |
 | 📥 **简历导入** | 直接导入 PDF / TXT / MD 格式简历 |
+
+---
+
+## 🗺 技术流图
+
+```mermaid
+flowchart TD
+    subgraph INPUT ["📥 输入"]
+        A1["🔗 招聘链接 URL"]
+        A2["📋 手动粘贴 JD"]
+        A3["📄 简历文件\nPDF / MD / TXT"]
+    end
+
+    subgraph SCRAPE ["🌐 爬取层（Playwright · webkit）"]
+        B["无头浏览器\n字节 / 腾讯 / 美团 / 小红书 等"]
+    end
+
+    subgraph PREP ["📚 上下文组装"]
+        C1["cv.md 简历"]
+        C2["profile.yml 求职偏好"]
+        C3["modes/*.md Prompt 模板"]
+        D["构建完整 Prompt"]
+        C1 & C2 & C3 --> D
+    end
+
+    subgraph LLM ["🤖 大模型推理（Claude API / Ollama）"]
+        E1["Claude API\nclaude-opus-4-6"]
+        E2["Ollama 本地\nqwen2.5 等"]
+    end
+
+    subgraph FEAT ["⚙️ 功能模块"]
+        F1["🔍 职位评估\n7维度打分 · A–F 等级"]
+        F2["🎯 职位推荐\n匹配公司 & 岗位列表"]
+        F3["✂️ 简历裁剪\n按 JD 重排 + 关键词对齐"]
+        F4["💌 求职信生成\n引用真实数据 · 400–600字"]
+    end
+
+    subgraph OUTPUT ["📤 输出"]
+        G1["data/jobs.json\n职位追踪记录"]
+        G2["reports/*.md\nMarkdown 报告"]
+        G3["reports/*.pdf\nPDF 报告"]
+        G4["reports/tailored_cvs/\n定向简历 MD"]
+        G5["reports/cover_letters/\n求职信 MD"]
+        G6["dashboard/index.html\n可视化看板"]
+    end
+
+    A1 -->|自动爬取| B
+    A2 -->|直接使用| PREP
+    A3 -->|import-cv| C1
+    B -->|JD 文本| PREP
+
+    D --> E1
+    D --> E2
+
+    E1 & E2 --> F1
+    E1 & E2 --> F2
+    E1 & E2 --> F3
+    E1 & E2 --> F4
+
+    F1 --> G1 & G2 & G3
+    F2 --> G2
+    F3 --> G4
+    F4 --> G5
+    G1 --> G6
+
+    style LLM fill:#1a1a2e,color:#fff,stroke:#5e60ce
+    style FEAT fill:#0f2027,color:#fff,stroke:#2c5364
+    style INPUT fill:#0d1117,color:#eee,stroke:#30363d
+    style OUTPUT fill:#0d2d1a,color:#eee,stroke:#238636
+    style SCRAPE fill:#1c1c1c,color:#eee,stroke:#555
+    style PREP fill:#1a1228,color:#eee,stroke:#6e40c9
+```
 
 ---
 
@@ -101,6 +175,14 @@ python3 run.py evaluate --jd "JD文本" --company "字节" --title "后端实习
 # AI 推荐职位
 python3 run.py recommend --direction "大模型算法"
 
+# 定向裁剪简历（针对某个 JD）
+python3 run.py tailor-cv --url "招聘链接"
+python3 run.py tailor-cv --jd "JD文本" --company "字节" --title "大模型算法实习"
+
+# 生成求职信
+python3 run.py cover-letter --url "招聘链接"
+python3 run.py cover-letter --jd "JD文本" --company "字节" --title "大模型算法实习"
+
 # 管理申请进度
 python3 run.py list                       # 查看所有职位
 python3 run.py update <ID> <状态>         # 更新状态
@@ -116,7 +198,9 @@ python3 run.py dashboard                  # 打开可视化看板
 命令与上方完全相同，额外支持：
 
 ```bash
-python3 run_local.py models   # 查看本地已安装模型
+python3 run_local.py models                    # 查看本地已安装模型
+python3 run_local.py tailor-cv --url "链接"    # 本地模型裁剪简历
+python3 run_local.py cover-letter --url "链接" # 本地模型生成求职信
 ```
 
 ### 申请状态可选值
@@ -162,10 +246,14 @@ career-ops/
 │   └── profile.yml         # 求职偏好
 ├── modes/
 │   ├── evaluate.md         # 评估 Prompt 模板
-│   └── recommend.md        # 推荐 Prompt 模板
+│   ├── recommend.md        # 推荐 Prompt 模板
+│   ├── tailor_cv.md        # 简历裁剪 Prompt 模板
+│   └── cover_letter.md     # 求职信 Prompt 模板
 ├── src/
 │   ├── evaluator.py        # 评估引擎
 │   ├── recommender.py      # 推荐模块
+│   ├── cv_tailor.py        # 简历定向裁剪引擎
+│   ├── cover_letter.py     # 求职信生成引擎
 │   ├── scraper.py          # JD 爬虫（Playwright）
 │   ├── tracker.py          # 职位追踪
 │   ├── pdf_gen.py          # PDF 生成
@@ -174,7 +262,10 @@ career-ops/
 │   └── ollama_client.py    # Ollama 客户端
 ├── data/
 │   └── jobs.json           # 职位追踪数据
-├── reports/                # 评估报告（MD + PDF）
+├── reports/
+│   ├── tailored_cvs/       # 定向裁剪版简历（MD）
+│   ├── cover_letters/      # 求职信（MD）
+│   └── *.pdf               # 评估报告 PDF
 └── dashboard/
     └── index.html          # 可视化看板
 ```
@@ -195,6 +286,12 @@ macOS 字体通常自动识别。如仍有问题，在 `src/pdf_gen.py` 的 `CHI
 **Q：Ollama 模型响应慢**
 在 `config/api_local.yml` 中增大 `timeout` 值，或换用更小的模型如 `qwen2.5:3b`。
 
+**Q：定向简历/求职信内容不够准确**
+检查 `cv.md` 是否完整（尤其是量化数据），并在 `--jd` 参数中提供尽可能详细的 JD 原文。Claude API 版效果显著优于 Ollama 本地版。
+
+**Q：求职信风格太正式/太口语化**
+可以直接编辑 `modes/cover_letter.md` 中的"写作原则"部分来调整风格，无需改代码。
+
 **Q：`Client.__init__() got unexpected argument 'proxies'`**
 ```bash
 pip install --upgrade anthropic
@@ -213,9 +310,11 @@ pip install "httpx<0.28.0"
 - [x] AI 职位推荐
 - [x] 简历导入（PDF/TXT/MD）
 - [x] Ollama 本地模型支持
+- [x] 定向简历裁剪（按 JD 自动重排 + 关键词对齐）
+- [x] 求职信一键生成
 - [ ] 批量 URL 并行评估
-- [ ] 简历按 JD 自动定制
-- [ ] 求职信生成
+- [ ] 微信/钉钉投递结果通知
+- [ ] CV 一键导出 PDF（裁剪版）
 
 ---
 

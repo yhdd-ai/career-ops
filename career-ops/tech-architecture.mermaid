@@ -1,61 +1,65 @@
 flowchart TD
-    subgraph INPUT ["📥 输入层"]
-        A[招聘平台 URL\n实习僧 / 牛客 / 大厂官网]
+    subgraph INPUT ["📥 输入"]
+        A1["🔗 招聘链接 URL"]
+        A2["📋 手动粘贴 JD"]
+        A3["📄 简历文件\nPDF / MD / TXT"]
     end
 
-    subgraph SCRAPE ["🌐 爬取层（Playwright）"]
-        B[启动无头浏览器]
-        C[处理登录态 / 反爬]
-        D[提取 JD 结构化文本]
-        B --> C --> D
+    subgraph SCRAPE ["🌐 爬取层（Playwright · webkit）"]
+        B["无头浏览器\n字节 / 腾讯 / 美团 / 小红书 等"]
     end
 
-    subgraph CONTEXT ["📚 上下文组装"]
-        E[cv.md 简历]
-        F[profile.yml 偏好]
-        G[modes/evaluate.md 评分规则]
-        H[构建完整 Prompt]
-        E & F & G --> H
+    subgraph PREP ["📚 上下文组装"]
+        C1["cv.md 简历"]
+        C2["profile.yml 求职偏好"]
+        C3["modes/*.md Prompt 模板"]
+        D["构建完整 Prompt"]
+        C1 & C2 & C3 --> D
     end
 
-    subgraph LLM ["🤖 大模型推理层（Claude）"]
-        I[Claude Code / API]
-        J["7维度评分\n岗位匹配 / 成长空间 / 公司质量\n地点 / 薪资 / 经验 / 文化"]
-        K[输出结构化报告文本]
-        I --> J --> K
+    subgraph LLM ["🤖 大模型推理（可选 Claude API / Ollama）"]
+        E1["Claude API\nclaude-opus-4-6"]
+        E2["Ollama 本地\nqwen2.5 等"]
     end
 
-    subgraph PARSE ["⚙️ 解析层"]
-        L[正则提取 score / grade]
-        M[维度分数解析]
-        N[生成 Job 数据结构]
-        L & M --> N
+    subgraph FEAT ["⚙️ 功能模块"]
+        F1["🔍 职位评估\n7维度打分 · A–F 等级"]
+        F2["🎯 职位推荐\n匹配公司 & 岗位列表"]
+        F3["✂️ 简历裁剪\n按 JD 重排 + 关键词对齐"]
+        F4["💌 求职信生成\n引用真实数据 · 400–600字"]
     end
 
-    subgraph OUTPUT ["📤 输出层"]
-        O[data/jobs.json\n职位追踪记录]
-        P[reports/*.md\nMarkdown 报告]
-        Q[reports/*.pdf\nPDF 报告]
-        R[dashboard/index.html\n可视化看板]
+    subgraph OUTPUT ["📤 输出"]
+        G1["data/jobs.json\n职位追踪记录"]
+        G2["reports/*.md\nMarkdown 报告"]
+        G3["reports/*.pdf\nPDF 报告"]
+        G4["reports/tailored_cvs/\n定向简历 MD"]
+        G5["reports/cover_letters/\n求职信 MD"]
+        G6["dashboard/index.html\n可视化看板"]
     end
 
-    subgraph BATCH ["⚡ 批量模式（进阶）"]
-        S[batch/jobs.txt\n待处理 URL 列表]
-        T[并行启动多个 Claude 实例]
-        U[状态管理 / 失败重试]
-        S --> T --> U
-    end
+    A1 -->|自动爬取| B
+    A2 -->|直接使用| PREP
+    A3 -->|import-cv| C1
+    B -->|JD 文本| PREP
 
-    A --> B
-    D --> H
-    H --> I
-    K --> L
-    N --> O & P & Q
-    O --> R
+    D --> E1
+    D --> E2
 
-    S -.->|批量输入| B
-    U -.->|汇总结果| O
+    E1 & E2 --> F1
+    E1 & E2 --> F2
+    E1 & E2 --> F3
+    E1 & E2 --> F4
+
+    F1 --> G1 & G2 & G3
+    F2 --> G2
+    F3 --> G4
+    F4 --> G5
+    G1 --> G6
 
     style LLM fill:#1a1a2e,color:#fff,stroke:#5e60ce
-    style BATCH fill:#16213e,color:#aaa,stroke:#444,stroke-dasharray:5
-    style INPUT fill:#0d1117,color:#fff,stroke:#333
+    style FEAT fill:#0f2027,color:#fff,stroke:#2c5364
+    style INPUT fill:#0d1117,color:#eee,stroke:#30363d
+    style OUTPUT fill:#0d2d1a,color:#eee,stroke:#238636
+    style SCRAPE fill:#1c1c1c,color:#eee,stroke:#555
+    style PREP fill:#1a1228,color:#eee,stroke:#6e40c9

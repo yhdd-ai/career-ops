@@ -29,6 +29,7 @@ sys.path.insert(0, str(BASE_DIR))
 from src import tracker, evaluator, recommender, pdf_gen, dashboard_gen
 from src.cv_importer import import_cv
 from src.ollama_client import chat, list_models, load_local_config
+from src import cv_tailor, cover_letter as cl
 
 
 # ── 颜色 ────────────────────────────────────────────────────────
@@ -167,6 +168,102 @@ def cmd_models(args):
     print(grey(f"\n修改模型：编辑 config/api_local.yml 中的 model 字段"))
 
 
+# ── Ollama 版 tailor-cv ──────────────────────────────────────────
+def cmd_tailor_cv(args):
+    from src.scraper import scrape_job
+    cfg = load_local_config()
+
+    url, company, title, jd_text = args.url or "", args.company or "", args.title or "", ""
+
+    if url.startswith("http"):
+        print(f"  🌐 正在爬取：{url}")
+        try:
+            info = scrape_job(url, headless=True)
+            jd_text = info.jd_text
+            company = company or info.company
+            title   = title   or info.title
+            print(green(f"  ✓ 爬取成功：{title} @ {company}"))
+        except Exception as e:
+            print(yellow(f"  ⚠ 爬取失败（{e}）"))
+
+    if not jd_text:
+        if args.jd_file:
+            jd_text = Path(args.jd_file).read_text(encoding="utf-8")
+        elif args.jd:
+            jd_text = args.jd
+        else:
+            print(bold("请粘贴 JD 内容（Ctrl+D 结束）："))
+            lines = []
+            try:
+                while True: lines.append(input())
+            except EOFError: pass
+            jd_text = "\n".join(lines)
+
+    if not jd_text.strip():
+        print(red("错误：JD 内容为空"))
+        sys.exit(1)
+
+    company = company or input("  公司名称：").strip()
+    title   = title   or input("  职位名称：").strip()
+
+    prompt = cv_tailor.build_tailor_prompt(jd_text, company, title)
+    model  = cfg.get("model", "qwen2.5:latest")
+    print(f"  🦙 正在调用本地模型 ({model}) 裁剪简历...")
+    result = chat(prompt, cfg)
+
+    path = cv_tailor.save_tailored_cv(result, company, title)
+    print(green(f"\n  ✓ 定向简历已生成：reports/tailored_cvs/{path.name}"))
+
+
+# ── Ollama 版 cover-letter ────────────────────────────────────────
+def cmd_cover_letter(args):
+    from src.scraper import scrape_job
+    cfg = load_local_config()
+
+    url, company, title, jd_text = args.url or "", args.company or "", args.title or "", ""
+
+    if url.startswith("http"):
+        print(f"  🌐 正在爬取：{url}")
+        try:
+            info = scrape_job(url, headless=True)
+            jd_text = info.jd_text
+            company = company or info.company
+            title   = title   or info.title
+            print(green(f"  ✓ 爬取成功：{title} @ {company}"))
+        except Exception as e:
+            print(yellow(f"  ⚠ 爬取失败（{e}）"))
+
+    if not jd_text:
+        if args.jd_file:
+            jd_text = Path(args.jd_file).read_text(encoding="utf-8")
+        elif args.jd:
+            jd_text = args.jd
+        else:
+            print(bold("请粘贴 JD 内容（Ctrl+D 结束）："))
+            lines = []
+            try:
+                while True: lines.append(input())
+            except EOFError: pass
+            jd_text = "\n".join(lines)
+
+    if not jd_text.strip():
+        print(red("错误：JD 内容为空"))
+        sys.exit(1)
+
+    company = company or input("  公司名称：").strip()
+    title   = title   or input("  职位名称：").strip()
+
+    prompt = cl.build_cover_letter_prompt(jd_text, company, title)
+    model  = cfg.get("model", "qwen2.5:latest")
+    print(f"  🦙 正在调用本地模型 ({model}) 生成求职信...")
+    letter = chat(prompt, cfg)
+
+    path = cl.save_cover_letter(letter, company, title)
+    print(f"\n{bold('──── 求职信预览 ────')}")
+    print(letter)
+    print(green(f"\n  ✓ 求职信已保存：reports/cover_letters/{path.name}"))
+
+
 # ── 其他命令复用原版 ─────────────────────────────────────────────
 def cmd_list(args):
     jobs = tracker.get_all_jobs()
@@ -217,6 +314,20 @@ def main():
     p_rec = sub.add_parser("recommend", help="本地模型推荐职位")
     p_rec.add_argument("--direction", default="")
 
+    p_tailor = sub.add_parser("tailor-cv", help="根据 JD 裁剪简历，生成定向版 Markdown")
+    p_tailor.add_argument("--url", default="")
+    p_tailor.add_argument("--jd", default="")
+    p_tailor.add_argument("--jd-file", default="")
+    p_tailor.add_argument("--company", default="")
+    p_tailor.add_argument("--title", default="")
+
+    p_cl = sub.add_parser("cover-letter", help="根据 JD 生成求职信")
+    p_cl.add_argument("--url", default="")
+    p_cl.add_argument("--jd", default="")
+    p_cl.add_argument("--jd-file", default="")
+    p_cl.add_argument("--company", default="")
+    p_cl.add_argument("--title", default="")
+
     sub.add_parser("models", help="查看已安装的 Ollama 模型")
 
     p_cv = sub.add_parser("import-cv", help="导入简历文件（PDF/TXT/MD）")
@@ -231,13 +342,15 @@ def main():
 
     args = parser.parse_args()
     cmds = {
-        "import-cv": cmd_import_cv,
-        "evaluate":  cmd_evaluate,
-        "recommend": cmd_recommend,
-        "models":    cmd_models,
-        "list":      cmd_list,
-        "update":    cmd_update,
-        "dashboard": cmd_dashboard,
+        "import-cv":    cmd_import_cv,
+        "evaluate":     cmd_evaluate,
+        "recommend":    cmd_recommend,
+        "tailor-cv":    cmd_tailor_cv,
+        "cover-letter": cmd_cover_letter,
+        "models":       cmd_models,
+        "list":         cmd_list,
+        "update":       cmd_update,
+        "dashboard":    cmd_dashboard,
     }
 
     if args.command in cmds:

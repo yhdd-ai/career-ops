@@ -24,6 +24,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 from src import tracker, evaluator, pdf_gen, dashboard_gen, recommender
 from src.cv_importer import import_cv
+from src import cv_tailor, cover_letter as cl
 
 
 # ── 颜色输出 ────────────────────────────────────────────────────
@@ -225,6 +226,111 @@ def cmd_import_cv(args):
         print(red(f"✗ 导入失败：{e}"))
 
 
+# ── tailor-cv 命令 ───────────────────────────────────────────────
+def cmd_tailor_cv(args):
+    """根据 JD 裁剪简历，生成定向版 Markdown"""
+    from src.scraper import scrape_job
+
+    url      = args.url or ""
+    company  = args.company or ""
+    title    = args.title or ""
+    jd_text  = ""
+
+    if url.startswith("http"):
+        print(f"  🌐 正在爬取：{url}")
+        try:
+            info     = scrape_job(url, headless=True)
+            jd_text  = info.jd_text
+            company  = company or info.company
+            title    = title   or info.title
+            print(green(f"  ✓ 爬取成功：{title} @ {company}"))
+        except Exception as e:
+            print(yellow(f"  ⚠ 爬取失败（{e}），请手动提供 JD"))
+
+    if not jd_text:
+        if args.jd_file:
+            jd_text = Path(args.jd_file).read_text(encoding="utf-8")
+        elif args.jd:
+            jd_text = args.jd
+        else:
+            print(bold("请粘贴 JD 内容（Ctrl+D 结束）："))
+            lines = []
+            try:
+                while True: lines.append(input())
+            except EOFError: pass
+            jd_text = "\n".join(lines)
+
+    if not jd_text.strip():
+        print(red("错误：JD 内容为空"))
+        sys.exit(1)
+
+    company = company or input("  公司名称：").strip()
+    title   = title   or input("  职位名称：").strip()
+
+    try:
+        result = cv_tailor.tailor_cv(jd_text, company, title)
+    except (ImportError, ValueError) as e:
+        print(red(f"✗ {e}"))
+        sys.exit(1)
+
+    path = cv_tailor.save_tailored_cv(result, company, title)
+    print(green(f"\n  ✓ 定向简历已生成：reports/tailored_cvs/{path.name}"))
+    print(grey("  提示：可直接复制到 Word/LaTeX 排版后发送"))
+
+
+# ── cover-letter 命令 ─────────────────────────────────────────────
+def cmd_cover_letter(args):
+    """根据 JD 生成求职信"""
+    from src.scraper import scrape_job
+
+    url      = args.url or ""
+    company  = args.company or ""
+    title    = args.title or ""
+    jd_text  = ""
+
+    if url.startswith("http"):
+        print(f"  🌐 正在爬取：{url}")
+        try:
+            info     = scrape_job(url, headless=True)
+            jd_text  = info.jd_text
+            company  = company or info.company
+            title    = title   or info.title
+            print(green(f"  ✓ 爬取成功：{title} @ {company}"))
+        except Exception as e:
+            print(yellow(f"  ⚠ 爬取失败（{e}），请手动提供 JD"))
+
+    if not jd_text:
+        if args.jd_file:
+            jd_text = Path(args.jd_file).read_text(encoding="utf-8")
+        elif args.jd:
+            jd_text = args.jd
+        else:
+            print(bold("请粘贴 JD 内容（Ctrl+D 结束）："))
+            lines = []
+            try:
+                while True: lines.append(input())
+            except EOFError: pass
+            jd_text = "\n".join(lines)
+
+    if not jd_text.strip():
+        print(red("错误：JD 内容为空"))
+        sys.exit(1)
+
+    company = company or input("  公司名称：").strip()
+    title   = title   or input("  职位名称：").strip()
+
+    try:
+        letter = cl.generate_cover_letter(jd_text, company, title)
+    except (ImportError, ValueError) as e:
+        print(red(f"✗ {e}"))
+        sys.exit(1)
+
+    path = cl.save_cover_letter(letter, company, title)
+    print(f"\n{bold('──── 求职信预览 ────')}")
+    print(letter)
+    print(green(f"\n  ✓ 求职信已保存：reports/cover_letters/{path.name}"))
+
+
 # ── stats 命令 ───────────────────────────────────────────────────
 def cmd_stats(args):
     stats = tracker.get_stats()
@@ -290,6 +396,22 @@ def main():
     p_pdf = sub.add_parser("pdf", help="生成 PDF 报告")
     p_pdf.add_argument("id", type=int, help="职位 ID")
 
+    # tailor-cv
+    p_tailor = sub.add_parser("tailor-cv", help="根据 JD 裁剪简历，生成定向版 Markdown")
+    p_tailor.add_argument("--url", default="", help="职位 URL（自动爬取 JD）")
+    p_tailor.add_argument("--jd", default="", help="手动提供 JD 文本")
+    p_tailor.add_argument("--jd-file", default="", help="JD 文本文件路径")
+    p_tailor.add_argument("--company", default="", help="公司名称")
+    p_tailor.add_argument("--title", default="", help="职位名称")
+
+    # cover-letter
+    p_cl = sub.add_parser("cover-letter", help="根据 JD 生成求职信")
+    p_cl.add_argument("--url", default="", help="职位 URL（自动爬取 JD）")
+    p_cl.add_argument("--jd", default="", help="手动提供 JD 文本")
+    p_cl.add_argument("--jd-file", default="", help="JD 文本文件路径")
+    p_cl.add_argument("--company", default="", help="公司名称")
+    p_cl.add_argument("--title", default="", help="职位名称")
+
     # dashboard
     sub.add_parser("dashboard", help="生成并打开 HTML 看板")
 
@@ -299,14 +421,16 @@ def main():
     args = parser.parse_args()
 
     cmds = {
-        "import-cv": cmd_import_cv,
-        "evaluate":  cmd_evaluate,
-        "recommend": cmd_recommend,
-        "list":      cmd_list,
-        "update":    cmd_update,
-        "pdf":       cmd_pdf,
-        "dashboard": cmd_dashboard,
-        "stats":     cmd_stats,
+        "import-cv":    cmd_import_cv,
+        "evaluate":     cmd_evaluate,
+        "recommend":    cmd_recommend,
+        "tailor-cv":    cmd_tailor_cv,
+        "cover-letter": cmd_cover_letter,
+        "list":         cmd_list,
+        "update":       cmd_update,
+        "pdf":          cmd_pdf,
+        "dashboard":    cmd_dashboard,
+        "stats":        cmd_stats,
     }
 
     if args.command in cmds:
