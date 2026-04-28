@@ -1,0 +1,7 @@
+# Claude API 配置模板
+# 复制本文件为 api.yml，填入你的 API Key 后即可使用
+# cp config/api.yml.example config/api.yml
+
+anthropic_api_key: "sk-ant-YOUR_KEY_HERE"
+model: "claude-opus-4-6"    # 推荐 opus，质量最高；或 claude-sonnet-4-6 降低成本
+max_tokens: 4096

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Career-ops · 面试讲解流程图</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d1117;
+    color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #58a6ff;
+    margin-bottom: 6px;
+    letter-spacing: 0.3px;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #8b949e;
+    margin-bottom: 32px;
+  }
+
+  /* ── 步骤说明卡片 ────────────────── */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    margin-bottom: 36px;
+  }
+  .step-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 16px 18px;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .step-card:hover { border-color: #58a6ff55; }
+  .step-card .num {
+    position: absolute;
+    top: 14px; right: 16px;
+    font-size: 28px;
+    font-weight: 800;
+    color: #21262d;
+    line-height: 1;
+  }
+  .step-card .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+  }
+  .tag-input    { background:#1f2d3d; color:#58a6ff; }
+  .tag-cache    { background:#1f2d1a; color:#3fb950; }
+  .tag-stage1   { background:#2d1f3d; color:#d2a8ff; }
+  .tag-stage2   { background:#1a1f2d; color:#79c0ff; }
+  .tag-gate     { background:#3d1f1f; color:#f85149; }
+  .tag-output   { background:#2d2a1a; color:#e3b341; }
+  .tag-quality  { background:#1f2d2d; color:#56d364; }
+
+  .step-card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: #e6edf3;
+  }
+  .step-card p {
+    font-size: 12.5px;
+    color: #8b949e;
+    line-height: 1.65;
+  }
+  .step-card .highlight {
+    color: #e6edf3;
+    font-weight: 600;
+  }
+  .step-card .metric {
+    display: inline-block;
+    background: #0d2318;
+    color: #3fb950;
+    border: 1px solid #26402e;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+
+  /* ── 流程图容器 ──────────────────── */
+  .diagram-wrap {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 28px 20px;
+    margin-bottom: 32px;
+    overflow-x: auto;
+  }
+  .diagram-wrap h2 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #8b949e;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .mermaid { display: flex; justify-content: center; }
+
+  /* ── 话术区域 ────────────────────── */
+  .script-section { margin-bottom: 40px; }
+  .script-section h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #58a6ff;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #21262d;
+  }
+  .qa-block {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .qa-q {
+    background: #1c2128;
+    padding: 12px 18px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #e3b341;
+    border-bottom: 1px solid #30363d;
+  }
+  .qa-q::before { content: "Q  "; color: #8b949e; font-weight: 400; }
+  .qa-a {
+    padding: 14px 18px;
+    font-size: 13px;
+    color: #c9d1d9;
+    line-height: 1.75;
+  }
+  .qa-a em { color: #79c0ff; font-style: normal; font-weight: 600; }
+  .qa-a strong { color: #e6edf3; }
+  .qa-a .num-badge {
+    display: inline-block;
+    background: #1f2d3d;
+    color: #58a6ff;
+    border-radius: 50%;
+    width: 20px; height: 20px;
+    text-align: center;
+    line-height: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 4px;
+  }
+
+  /* ── 一句话亮点 ──────────────────── */
+  .oneliners {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .oneliners h3 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 12px;
+  }
+  .oneliner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid #21262d;
+    font-size: 13px;
+  }
+  .oneliner:last-child { border-bottom: none; padding-bottom: 0; }
+  .oneliner .icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .oneliner .text { color: #c9d1d9; line-height: 1.6; }
+  .oneliner .text b { color: #e6edf3; }
+</style>
+</head>
+<body>
+
+<h1>Career-ops · 面试讲解流程图</h1>
+<p class="subtitle">系统串联逻辑 · 话术参考 · 工程亮点提炼 &nbsp;|&nbsp; 2026.04</p>
+
+<!-- ── 步骤卡片 ─────────────────────────────────────────── -->
+<div class="steps">
+
+  <div class="step-card">
+    <div class="num">1</div>
+    <span class="tag tag-input">输入层</span>
+    <h3>JD 获取 · Playwright 爬取</h3>
+    <p>用户输入招聘链接，<span class="highlight">Playwright webkit</span> 无头浏览器自动渲染并提取 JD 文本，支持字节、腾讯、美团等 10+ 平台的动态渲染和反爬处理。也可直接粘贴 JD 文本跳过爬取。</p>
+  </div>
+
+  <div class="step-card">
+    <div class="num">2</div>
+    <span class="tag tag-cache">缓存层</span>
+    <h3>三级缓存 · 跳过重复 LLM 消耗</h3>
+    <p>先查 <span class="highlight">URL 精确匹配</span>（Level 1），再查 <span class="highlight">JD MD5 哈希</span>（Level 2），最后用 <span class="highlight">sentence-transformers embedding</span> 做 cosine 相似度检索（Level 3，阈值 0.92）。三级均未命中才进入 LLM。</p>
+    <span class="metric">命中则零 LLM 消耗</span>
+  </div>
+
+  <div class="step-card">
+    <div class="num">3</div>
+    <span class="tag tag-stage1">Stage 1</span>
+    <h3>Archetype 分类 · 两阶段混合策略</h3>
+    <p><span class="highlight">关键词规则</span>覆盖约 80% 场景（零 LLM 消耗）；置信度不足时回退 LLM 语义分类（~200 tokens）。分类结果决定 Stage 2 的维度权重配置和专属门控规则。</p>
+    <span class="metric">80% 场景 0 token</span>
+  </div>
+
+  <div class="step-card">
+    <div class="num">4</div>
+    <span class="tag tag-stage2">Stage 2</span>
+    <h3>LLM 评估 · Structured Output</h3>
+    <p>根据 Archetype 动态注入差异化权重，调用 LLM 对 7 个维度打分。<span class="highlight">Claude 后端用 tool_use 强制结构化输出</span>，直接解析为 typed dict；Ollama 用 format=json。parse 失败率从 ~8% 降至 ~0。</p>
+    <span class="metric">parse 失败率 ~8% → ~0</span>
+  </div>
+
+  <div class="step-card">
+    <div class="num">5</div>
+    <span class="tag tag-gate">门控层</span>
+    <h3>Gate-Pass Logic · 业务规则约束</h3>
+    <p>LLM 输出后叠加<span class="highlight">业务约束层</span>：岗位匹配度 &lt; 35 强制压至 C，经验门槛过高压至 D；大模型岗匹配度 &lt; 50 压至 B。多条门控同时触发取最严格上限，记录 original_grade 和触发原因。</p>
+    <span class="metric">防止单维高分掩盖短板</span>
+  </div>
+
+  <div class="step-card">
+    <div class="num">6</div>
+    <span class="tag tag-output">输出层</span>
+    <h3>PDF 报告 · 看板 · STAR 故事</h3>
+    <p>评估结果写入 jobs.json，生成<span class="highlight">带维度进度条的中文 PDF</span>，刷新 HTML 可视化看板。加 --star 参数时额外调用 LLM 生成面试 STAR 素材并追加到 story_bank.md。</p>
+  </div>
+
+  <div class="step-card">
+    <div class="num">7</div>
+    <span class="tag tag-quality">质量保障</span>
+    <h3>评估集 · A/B 测试 · 回归</h3>
+    <p>10 个 Golden Label case 覆盖全等级及对抗 case，<span class="highlight">eval_runner.py</span> 自动回归，等级准确率硬指标 10/10。A/B 测试框架量化 Token 优化代价：评分偏差 ≤3 分，Token 节省 27%。</p>
+    <span class="metric">等级准确率 10/10</span>
+    <span class="metric">Token 节省 27%</span>
+  </div>
+
+</div>
+
+<!-- ── 流程图 ─────────────────────────────────────────────── -->
+<div class="diagram-wrap">
+  <h2>▸ 系统数据流</h2>
+  <div class="mermaid">
+flowchart TD
+    A(["🔗 招聘链接 / 粘贴 JD"]) --> B
+
+    B["🌐 Playwright 爬取\n动态渲染 · 10+ 平台"]
+    B --> C{{"🗄 三级缓存检查"}}
+
+    C -->|"✅ 命中 L1/L2/L3"| Z(["📊 直接返回缓存结果"])
+    C -->|"❌ 未命中"| D
+
+    subgraph PIPELINE ["  两阶段 LLM Pipeline  "]
+        D["🏷 Stage 1  Archetype 分类\n关键词规则 80% · LLM 语义兜底 20%"]
+        D --> E["📐 动态注入\n差异化维度权重 + 门控规则"]
+        E --> F["🤖 Stage 2  LLM 评估\n7 维度打分  Claude / Ollama"]
+        F --> G["📦 Structured Output\ntool_use · parse失败率 ~0"]
+        G --> H[["🔒 Gate-Pass Logic\n业务规则约束  多条取最严"]]
+    end
+
+    H --> I["💾 写入缓存\n更新 embedding 向量库"]
+    H --> OUT
+
+    subgraph OUT ["  输出  "]
+        J["📄 PDF 报告\n维度进度条"]
+        K["📊 HTML 看板\n等级/状态筛选"]
+        L["⭐ STAR 故事\nstory_bank.md"]
+    end
+
+    subgraph QA ["  质量保障（离线）  "]
+        M["🧪 A/B 测试框架\nVariant A vs B · N轮均值"]
+        N["✅ Golden Label 评估集\n10 case · eval_runner.py"]
+    end
+
+    M -.->|"评分偏差 ≤3分\nToken节省 27%"| PIPELINE
+    N -.->|"等级准确率 10/10\nPrompt 变更必须通过"| PIPELINE
+
+    style PIPELINE fill:#0d1a2e,stroke:#58a6ff,color:#e6edf3
+    style OUT fill:#0d2318,stroke:#3fb950,color:#e6edf3
+    style QA fill:#1a0d2e,stroke:#d2a8ff,color:#e6edf3
+    style H fill:#3d1f1f,stroke:#f85149,color:#ffa198
+    style G fill:#1a1f3d,stroke:#79c0ff,color:#cae8ff
+    style C fill:#1a2a1a,stroke:#3fb950,color:#8ddb8d
+  </div>
+</div>
+
+<!-- ── 话术 ─────────────────────────────────────────────── -->
+<div class="script-section">
+  <h2>面试话术参考</h2>
+
+  <div class="qa-block">
+    <div class="qa-q">请介绍一下你的 Career-ops 项目</div>
+    <div class="qa-a">
+      这是一个我从零独立设计开发的<em>大模型驱动的求职自动化系统</em>。核心功能是：给一个招聘链接，系统自动爬取 JD、评估匹配度、生成 PDF 报告，整个流程全自动。但我想重点讲的不是"功能是什么"，而是<em>我是怎么做工程决策的</em>。<br><br>
+      整个系统分三层来看：<strong>输入层</strong>用 Playwright 做多平台爬取；<strong>评估层</strong>是我设计的两阶段 LLM Pipeline；<strong>质量保障层</strong>包括三级缓存、结构化输出、门控机制和评估集。
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">两阶段 Pipeline 具体是怎么串联起来的？</div>
+    <div class="qa-a">
+      JD 进来之后，先过三级缓存——URL 精确匹配、MD5 哈希、最后是 embedding 语义相似度检索。命中任何一级就直接返回，不进 LLM，这样大概 30% 的重复 JD 零消耗。<br><br>
+      缓存未命中才进 Pipeline。<span class="num-badge">1</span><em>Stage 1</em> 做 Archetype 分类，先用关键词规则，能覆盖约 80% 的明确 JD，完全不耗 token；剩下 20% 模糊的回退 LLM 做语义分类，大概 200 tokens。<br><br>
+      <span class="num-badge">2</span>分类结果驱动 <em>Stage 2</em>——不同岗位类型注入不同的维度权重。比如大模型岗的岗位匹配度权重是 30%，普通岗位是 25%，让评分更贴近这个岗位真正重要的维度。<br><br>
+      <span class="num-badge">3</span>LLM 打完分之后，过<em>门控层</em>——这是我加在 LLM 输出之后的业务规则约束，相当于对 LLM 结果做后处理。核心逻辑是：某个关键维度低于阈值，不管其他维度多高，整体等级都要被压下来，防止一个维度高分掩盖真实短板。
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">你怎么保证 LLM 输出的稳定性？</div>
+    <div class="qa-a">
+      两个层面。<br><br>
+      <strong>输出格式的稳定性</strong>：我没有用正则去解析 LLM 的自由文本，而是用 Claude 的 tool_use + tool_choice 强制模型按 JSON Schema 输出结构化结果，直接拿到 typed dict，parse 失败率从之前 ~8% 降到接近零。Ollama 那边用 format=json 保持接口一致。<br><br>
+      <strong>评分质量的稳定性</strong>：我做了 A/B 测试，同一个 JD 跑两个 Variant——全文 CV 对比摘要 CV，各跑 N 轮取均值消除 LLM 随机性。实测摘要 CV 压缩 69% 之后，评分偏差只有 ≤3 分，说明优化是有效的。另外我还维护了一套 Golden Label 评估集，10 个 case 覆盖全部等级和对抗 case，每次改 Prompt 模板都要跑一遍回归，等级准确率必须 10/10 才能合并。
+    </div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">门控机制有什么具体设计？</div>
+    <div class="qa-a">
+      我把门控分成两层：<em>全局门控</em>和 <em>Archetype 专属门控</em>。<br><br>
+      全局门控对所有岗位生效，比如岗位匹配度 &lt; 35 强制压到 C 级，因为方向不符申请价值极低。经验要求匹配度 &lt; 20 压到 D 级，说明门槛对实习生太高了。<br><br>
+      Archetype 专属门控更细，比如大模型岗位，匹配度 &lt; 50 就压到 B，因为这个方向专业壁垒高，方向不符的话即使其他维度不错也没有价值。<br><br>
+      多条门控同时触发的时候，取最严格的那个上限，同时把原始等级和触发原因都记下来，方便用户看到"为什么被压"。
+    </div>
+  </div>
+
+</div>
+
+<!-- ── 一句话亮点 ─────────────────────────────────────────── -->
+<div class="oneliners">
+  <h3>▸ 面试一句话亮点（收尾用）</h3>
+  <div class="oneliner">
+    <span class="icon">⚡</span>
+    <div class="text"><b>成本控制：</b>关键词规则覆盖 80% 场景零 token，三级缓存拦截重复请求，LLM 实际调用量大幅降低</div>
+  </div>
+  <div class="oneliner">
+    <span class="icon">🔒</span>
+    <div class="text"><b>可信度：</b>LLM 输出不能直接信，所以我加了门控后处理层做业务规则约束，结果更可控</div>
+  </div>
+  <div class="oneliner">
+    <span class="icon">📐</span>
+    <div class="text"><b>工程化：</b>tool_use 强制 Structured Output，parse 失败率 ~8% → ~0；ABC 抽象层让 Claude / Ollama 零改动切换</div>
+  </div>
+  <div class="oneliner">
+    <span class="icon">📊</span>
+    <div class="text"><b>量化验证：</b>A/B 测试实测摘要 CV 评分偏差 ≤3 分，Token 节省 27%，用数据而不是感觉做决策</div>
+  </div>
+  <div class="oneliner">
+    <span class="icon">✅</span>
+    <div class="text"><b>质量保障：</b>Golden Label 评估集 + 自动化 eval runner，等级准确率 10/10，Prompt 迭代有回归保护</div>
+  </div>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1f2d3d',
+      primaryTextColor: '#e6edf3',
+      primaryBorderColor: '#58a6ff',
+      lineColor: '#58a6ff88',
+      secondaryColor: '#161b22',
+      tertiaryColor: '#0d1117',
+      background: '#0d1117',
+      mainBkg: '#161b22',
+      nodeBorder: '#30363d',
+      clusterBkg: '#0d1117',
+      titleColor: '#e6edf3',
+      edgeLabelBackground: '#161b22',
+      fontSize: '13px'
+    },
+    flowchart: {
+      curve: 'basis',
+      padding: 20,
+      nodeSpacing: 50,
+      rankSpacing: 60,
+    }
+  });
+</script>
+</body>
+</html>

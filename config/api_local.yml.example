@@ -1,0 +1,11 @@
+# Ollama 本地调试配置模板
+# 复制本文件为 api_local.yml，按需修改
+# cp config/api_local.yml.example config/api_local.yml
+#
+# 启动 Ollama：ollama serve
+# 拉取模型：ollama pull qwen2.5:7b
+
+ollama_base_url: "http://127.0.0.1:11434"
+model: "qwen2.5:latest"    # 推荐中文模型；也可换 llama3、mistral 等
+max_tokens: 4096
+timeout: 120

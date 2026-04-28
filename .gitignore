@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# ⚠️ API 密钥（绝对不入库）
+config/api.yml
+config/api_local.yml
+
+# 个人配置与简历（含隐私信息，提供 .example 替代）
+config/profile.yml
+config/cv_summary.md
+cv.md
+cv.md.bak
+
+# 运行时数据（个人职位追踪，不入库）
+data/eval_cache.json
+data/semantic_cache.json
+data/jobs.json
+data/jobs.yml
+
+# Context Engine 运行时数据（跨会话评估历史，含个人信息）
+context/
+
+# 生成的报告与文件（含真实公司/职位信息）
+reports/*.pdf
+reports/*.md
+reports/tailored_cvs/
+reports/cover_letters/
+reports/ab_tests/
+reports/story_bank.md
+
+# 生成的看板（运行时由 dashboard_gen.py 生成，含真实职位数据）
+dashboard/index.html
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.idea/
+.vscode/
+*.swp

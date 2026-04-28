@@ -1,0 +1,87 @@
+# Career-Ops 个人偏好配置示例
+# 复制为 config/profile.yml 并填入你的真实信息
+
+candidate:
+  name: "Your Name"
+  university: "Your University"
+  major: "Your Major (e.g., Computer Science)"
+  undergraduate: "Your Undergraduate University"
+  graduation: "2026.06"
+  available_from: "Immediately / Starting YYYY.MM"
+  internship_duration: "3-6 months"
+  english: "e.g., IELTS 7.0 / CET-6 / Native"
+
+# 核心竞争力（供评估时参考）
+strengths:
+  - "Internship experience at [Company] in [domain]"
+  - "1+ year full-time experience as [role]"
+  - "Master's degree at [University]"
+  - "Independent end-to-end project experience"
+
+# 目标岗位类型（按优先级）
+target_roles:
+  - Backend Development (Java / Go)
+  - AI / LLM Engineering
+  - Data Engineering
+  - Machine Learning Engineering
+  - Full-Stack Development
+
+# 目标城市
+preferred_locations:
+  - Beijing
+  - Shanghai
+  - Shenzhen
+  - Remote
+
+# 目标行业（按优先级）
+preferred_industries:
+  - Internet / Big Tech
+  - AI / LLM
+  - FinTech
+  - Cloud Computing
+
+# 公司偏好
+company_preferences:
+  prefer_known_brands: true
+  notes: "Open to both big tech and AI startups"
+  avoid_companies: []
+
+# 薪资期望
+compensation:
+  min_daily: 150         # 最低日薪（元）
+  preferred_daily: 300   # 期望日薪（元）
+
+# 评估权重（总分100，各项之和须等于100）
+scoring_weights:
+  role_match: 25
+  growth_potential: 20
+  company_quality: 15
+  location_fit: 10
+  compensation: 10
+  experience_match: 10
+  workload_culture: 10
+
+# 阈值
+auto_reject_threshold: 40
+strong_recommend_threshold: 75
+
+# 加分关键词（根据你的技术栈调整）
+bonus_signals:
+  - keyword: "LLM"
+    bonus: 5
+    reason: "Core tech stack"
+  - keyword: "RAG"
+    bonus: 5
+    reason: "Hands-on project experience"
+  - keyword: "Java"
+    bonus: 3
+    reason: "Primary language"
+
+# 减分关键词
+penalty_signals:
+  - keyword: "Sales"
+    penalty: -10
+    reason: "Not target direction"
+  - keyword: "Frontend"
+    penalty: -8
+    reason: "Not target direction"
