@@ -446,6 +446,158 @@ def cmd_ab_test(args):
         print(green(f"  ✓ 报告已保存：reports/ab_tests/{path.name}"))
 
 
+
+# ── batch ────────────────────────────────────────────────────────
+def cmd_batch(args):
+    """批量评估命令：创建批次、查看进度、断点续传、重试失败"""
+    from src import batch_state as bs
+
+    action = getattr(args, "batch_action", "run") or "run"
+
+    # ── list
+    if action == "list":
+        jobs = bs.list_batches()
+        bs.print_batch_list(jobs)
+        return
+
+    # ── status
+    if action == "status":
+        batch_id = getattr(args, "batch_id", "") or ""
+        if not batch_id:
+            print(red("请指定 batch_id，例如：python run.py batch status <batch_id>"))
+            sys.exit(1)
+        job = bs.get_batch(batch_id)
+        if not job:
+            print(red(f"找不到批次：{batch_id}"))
+            sys.exit(1)
+        bs.print_batch_status(job)
+        return
+
+    # ── resume
+    if action == "resume":
+        batch_id = getattr(args, "batch_id", "") or ""
+        if not batch_id:
+            print(red("请指定 batch_id，例如：python run.py batch resume <batch_id>"))
+            sys.exit(1)
+        job = bs.get_batch(batch_id)
+        if not job:
+            print(red(f"找不到批次：{batch_id}"))
+            sys.exit(1)
+        print(bold(f"\n🔄 断点续传  批次 {batch_id}"))
+        bs.run_batch(job, retry_failed=False)
+        return
+
+    # ── retry
+    if action == "retry":
+        batch_id = getattr(args, "batch_id", "") or ""
+        if not batch_id:
+            print(red("请指定 batch_id，例如：python run.py batch retry <batch_id>"))
+            sys.exit(1)
+        job = bs.get_batch(batch_id)
+        if not job:
+            print(red(f"找不到批次：{batch_id}"))
+            sys.exit(1)
+        failed_cnt = sum(1 for t in job.tasks if t.status == bs.TaskStatus.FAILED)
+        if not failed_cnt:
+            print(yellow(f"批次 {batch_id} 没有失败任务"))
+            return
+        print(bold(f"\n🔁 重试失败任务  批次 {batch_id}（{failed_cnt} 个）"))
+        bs.run_batch(job, retry_failed=True)
+        return
+
+    # ── run（默认）
+    inputs: list[tuple[str, str]] = []
+    label = ""
+
+    urls_file = getattr(args, "urls", "") or ""
+    jd_dir    = getattr(args, "jd_dir", "") or ""
+    url_list  = getattr(args, "url", "") or ""
+
+    if urls_file:
+        if not Path(urls_file).exists():
+            print(red(f"文件不存在：{urls_file}"))
+            sys.exit(1)
+        inputs = bs.parse_url_file(urls_file)
+        label  = f"URL 批次（{urls_file}）"
+    elif jd_dir:
+        if not Path(jd_dir).is_dir():
+            print(red(f"目录不存在：{jd_dir}"))
+            sys.exit(1)
+        inputs = bs.parse_jd_dir(jd_dir)
+        label  = f"JD 目录批次（{jd_dir}）"
+    elif url_list:
+        inputs = [("url", u.strip()) for u in url_list.split(",") if u.strip()]
+        label  = f"URL 批次（{len(inputs)} 个）"
+    else:
+        print(red("请指定输入：--urls <文件> 或 --jd-dir <目录> 或 --url <url1,url2,...>"))
+        print(grey("  例：python run.py batch run --urls urls.txt"))
+        sys.exit(1)
+
+    if not inputs:
+        print(yellow("未找到任何输入任务"))
+        sys.exit(0)
+
+    star = getattr(args, "star", False)
+    job  = bs.create_batch(inputs, label=label, backend=args.backend, star=star)
+
+    print(bold(f"\n📦 新建批次 {job.batch_id}  {len(inputs)} 个任务"))
+    print(grey(f"   后端：{args.backend}  STAR：{'开启' if star else '关闭'}"))
+    print(grey(f"   状态文件：data/batch_states/{job.batch_id}.json"))
+    print(grey(f"   中断后可用：python run.py batch resume {job.batch_id}"))
+
+    bs.run_batch(job, retry_failed=False)
+
+
+# ── bench ────────────────────────────────────────────────────────
+def cmd_bench(args):
+    """一致性基准测试：量化 Context Engine 对评分稳定性的提升"""
+    from src.consistency_bench import (
+        run_bench_case, print_summary, save_report, print_dry_run
+    )
+    import json
+    from pathlib import Path
+
+    dataset_path = Path(__file__).parent / "data" / "eval_dataset.json"
+    if not dataset_path.exists():
+        print(red("找不到 data/eval_dataset.json"))
+        sys.exit(1)
+
+    with open(dataset_path, encoding="utf-8") as f:
+        all_cases = json.load(f)["cases"]
+
+    # 筛选 case
+    cases = all_cases
+    if getattr(args, "case", ""):
+        cases = [c for c in cases if c["id"] == args.case]
+        if not cases:
+            print(red(f"未找到 case: {args.case}"))
+            sys.exit(1)
+    elif getattr(args, "grade", ""):
+        cases = [c for c in cases if c["expected_grade"] == args.grade.upper()]
+
+    rounds  = getattr(args, "rounds", 3)
+    compare = not getattr(args, "no_compare", False)
+
+    if getattr(args, "dry_run", False):
+        print_dry_run(cases, rounds, compare)
+        return
+
+    print(bold("\n🔬 一致性基准测试（Consistency Benchmark）"))
+    print(grey(f"   后端: {args.backend}  轮次: {rounds}  "
+               f"{'有/无 Context Engine 对比' if compare else '仅有 Context Engine'}"))
+
+    results = []
+    for case in cases:
+        r = run_bench_case(case, rounds=rounds, backend=args.backend, compare=compare)
+        results.append(r)
+
+    print_summary(results, compare)
+
+    if not getattr(args, "no_save", False):
+        path = save_report(results, rounds, args.backend, compare)
+        print(green(f"  ✓ 报告已保存：reports/{path.name}"))
+
+
 # ── context ──────────────────────────────────────────────────────
 def cmd_context(args):
     """Context Engine 管理命令"""
@@ -597,6 +749,32 @@ def main():
     p_pdf = sub.add_parser("pdf", help="生成 PDF 报告")
     p_pdf.add_argument("id", type=int, help="职位 ID")
 
+    # batch（批量评估 + 断点续传）
+    p_batch = sub.add_parser("batch",
+        help="批量评估：从文件/目录读取多个 JD，断点续传，失败重试")
+    p_batch.add_argument("batch_action", nargs="?", default="run",
+                         choices=["run", "status", "resume", "retry", "list"],
+                         help="run（启动，默认）| status | resume（断点续传）| retry（重试失败）| list")
+    p_batch.add_argument("batch_id",    nargs="?", default="",
+                         help="批次 ID，配合 status/resume/retry 使用")
+    p_batch.add_argument("--urls",      default="",  help="URL 列表文件（每行一个）")
+    p_batch.add_argument("--jd-dir",    default="",  help="JD 文本目录（.txt / .md）")
+    p_batch.add_argument("--url",       default="",  help="逗号分隔的 URL 列表（快速批量）")
+    p_batch.add_argument("--star",      action="store_true", help="同步生成 STAR 故事")
+
+
+    # bench（一致性基准测试）
+    p_bench = sub.add_parser("bench",
+        help="一致性基准测试：量化 Context Engine 对评分稳定性的提升")
+    p_bench.add_argument("--case",       default="", help="只跑指定 case ID，如 case_001")
+    p_bench.add_argument("--grade",      default="", help="只跑指定期望等级，如 A/B/C")
+    p_bench.add_argument("--rounds",     type=int, default=3,
+                         help="每个 case 的评估轮次（默认3，越多结果越可靠）")
+    p_bench.add_argument("--no-compare", action="store_true",
+                         help="跳过对照组（不运行无 Context Engine 版），节省 LLM 调用")
+    p_bench.add_argument("--no-save",    action="store_true", help="不保存报告文件")
+    p_bench.add_argument("--dry-run",    action="store_true", help="只预览 case 列表")
+
     # context（Context Engine 管理）
     p_ctx = sub.add_parser("context", help="Context Engine 管理：查看历史基准、评分一致性分析")
     p_ctx.add_argument("context_action", nargs="?", default="stats",
@@ -625,6 +803,8 @@ def main():
         "pdf":            cmd_pdf,
         "dashboard":      cmd_dashboard,
         "stats":          cmd_stats,
+        "batch":          cmd_batch,
+        "bench":          cmd_bench,
         "context":        cmd_context,
     }
 
